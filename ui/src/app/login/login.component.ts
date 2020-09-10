@@ -6,6 +6,9 @@ import {Router} from '@angular/router';
 import {SessionService} from '../shared/auth/session.service';
 import {CommonRoutes} from '../constant/route';
 import {TranslateService} from '@ngx-translate/core';
+import {Theme} from "../business/setting/theme/theme";
+import {ThemeService} from "../business/setting/theme/theme.service";
+import {LicenseService} from "../business/setting/license/license.service";
 
 @Component({
     selector: 'app-login',
@@ -18,22 +21,34 @@ export class LoginComponent implements OnInit {
     @Input() loginCredential: LoginCredential = new LoginCredential();
     message: string;
     isError = false;
+    theme: Theme;
 
     constructor(private loginService: LoginService,
                 private router: Router,
+                private themeService: ThemeService,
                 private sessionService: SessionService,
-                private translateService: TranslateService) {
+                private translateService: TranslateService,
+                private licenseService: LicenseService) {
     }
 
     ngOnInit(): void {
         const currentLanguage = localStorage.getItem('currentLanguage');
         if (currentLanguage) {
             this.loginCredential.language = currentLanguage;
-        }else {
+        } else {
             this.loginCredential.language = 'zh-CN';
         }
+        this.loadTheme();
     }
 
+    loadTheme() {
+        this.themeService.get().subscribe(data => {
+            this.theme = data;
+            if (this.theme.systemName) {
+                document.title = this.theme.systemName;
+            }
+        });
+    }
     login() {
         this.loginService.login(this.loginCredential).subscribe(res => {
             this.isError = false;

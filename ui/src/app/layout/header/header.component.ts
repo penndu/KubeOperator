@@ -5,6 +5,7 @@ import {Router} from '@angular/router';
 import {CommonRoutes} from '../../constant/route';
 import {PasswordComponent} from './password/password.component';
 import {AboutComponent} from "./about/about.component";
+import {Theme} from "../../business/setting/theme/theme";
 
 @Component({
     selector: 'app-header',
@@ -20,6 +21,7 @@ export class HeaderComponent implements OnInit {
 
     @ViewChild(AboutComponent, {static: true})
     about: AboutComponent;
+    logo: string;
 
     constructor(private sessionService: SessionService, private router: Router) {
     }
@@ -41,7 +43,15 @@ export class HeaderComponent implements OnInit {
 
 
     openDoc() {
-        window.open('https://docs.kubeoperator.io/', 'blank');
+        window.open('https://kubeoperator.io/docs/', 'blank');
+    }
+
+    openSwagger() {
+        window.open('/swagger/index.html', 'blank');
+    }
+
+    setLogo(logo: string) {
+        this.logo = logo;
     }
 
     logOut() {

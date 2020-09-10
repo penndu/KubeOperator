@@ -38,6 +38,11 @@ import {LogComponent} from './business/cluster/cluster-detail/log/log.component'
 import {BackupAccountComponent} from './business/setting/backup-account/backup-account.component';
 import {BackupComponent} from './business/cluster/cluster-detail/backup/backup.component';
 import {LicenseComponent} from './business/setting/license/license.component';
+import {SecurityComponent} from "./business/cluster/cluster-detail/security/security.component";
+import {LdapComponent} from './business/setting/ldap/ldap.component';
+import {ManifestComponent} from "./business/manifest/manifest.component";
+import {ThemeComponent} from "./business/setting/theme/theme.component";
+import {EventComponent} from './business/cluster/cluster-detail/event/event.component';
 
 const routes: Routes = [
     {path: 'login', component: LoginComponent},
@@ -72,6 +77,7 @@ const routes: Routes = [
                     {path: 'overview', component: OverviewComponent},
                     {path: 'nodes', component: NodeComponent},
                     {path: 'namespaces', component: NamespaceComponent},
+                    {path: 'events', component: EventComponent},
                     {
                         path: 'storages',
                         component: StorageComponent,
@@ -85,6 +91,7 @@ const routes: Routes = [
                     },
                     {path: 'logging', component: LoggingComponent},
                     {path: 'monitor', component: MonitorComponent},
+                    {path: 'security', component: SecurityComponent},
                     {
                         path: 'repository',
                         component: RepositoryComponent,
@@ -112,6 +119,8 @@ const routes: Routes = [
                     {path: 'credential', component: CredentialComponent},
                     {path: 'backupAccounts', component: BackupAccountComponent},
                     {path: 'license', component: LicenseComponent},
+                    {path: 'ldap', component: LdapComponent},
+                    {path: 'theme', component: ThemeComponent},
                 ]
             },
             {
@@ -123,7 +132,11 @@ const routes: Routes = [
                     {path: 'zone', component: ZoneComponent},
                     {path: 'plan', component: PlanComponent}
                 ]
+            }, {
+                path: 'manifests',
+                component: ManifestComponent,
             },
+
             {
                 path: 'users',
                 component: UserComponent,

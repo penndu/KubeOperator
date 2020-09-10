@@ -71,8 +71,11 @@ export class ZoneCreateComponent extends BaseModelComponent<Zone> implements OnI
     resetWizard(): void {
         this.wizard.reset();
         this.item = new ZoneCreateRequest();
+        this.networkValid = false;
         this.basicForm.resetForm(this.item);
+        this.basicForm.resetForm(this.networkValid);
         this.paramsForm.resetForm(this.item);
+        this.paramsForm.resetForm(this.networkValid);
     }
 
     doFinish(): void {
@@ -149,7 +152,8 @@ export class ZoneCreateComponent extends BaseModelComponent<Zone> implements OnI
             this.cloudZones = res.result;
             this.loading = false;
         }, error => {
-
+            this.loading = false;
+            this.modalAlertService.showAlert(error.error.msg, AlertLevels.ERROR);
         });
     }
 
@@ -178,32 +182,33 @@ export class ZoneCreateComponent extends BaseModelComponent<Zone> implements OnI
                 return;
             }
         }
-        const subnet = this.item.cloudVars['subnet'].split('/', 2);
-        if (subnet.length !== 2) {
-            this.networkValid = false;
-            this.networkError.push(this.translateService.instant('APP_SUBNET_INVALID'));
-            return;
-        }
-        if (!ipEndAddr.match(ipaddr.IPv4.parseCIDR(this.item.cloudVars['subnet']))) {
-            this.networkValid = false;
-            this.networkError.push(this.translateService.instant('APP_IP_RANGE_INVALID'));
-            return;
-        }
-        const gateway = this.item.cloudVars['gateway'];
-        if (!ipaddr.isValid(gateway)) {
-            this.networkValid = false;
-            this.networkError.push(this.translateService.instant('APP_GATEWAY_INVALID'));
-            return;
+        if (this.region.regionVars['provider'] === 'vSphere') {
+            const subnet = this.item.cloudVars['subnet'].split('/', 2);
+            if (subnet.length !== 2) {
+                this.networkValid = false;
+                this.networkError.push(this.translateService.instant('APP_SUBNET_INVALID'));
+                return;
+            }
+            if (!ipEndAddr.match(ipaddr.IPv4.parseCIDR(this.item.cloudVars['subnet']))) {
+                this.networkValid = false;
+                this.networkError.push(this.translateService.instant('APP_IP_RANGE_INVALID'));
+                return;
+            }
+            const gateway = this.item.cloudVars['gateway'];
+            if (!ipaddr.isValid(gateway)) {
+                this.networkValid = false;
+                this.networkError.push(this.translateService.instant('APP_GATEWAY_INVALID'));
+                return;
+            }
+            const dns1 = this.item.cloudVars['dns1'];
+            const dns2 = this.item.cloudVars['dns2'];
+            if (!ipaddr.isValid(dns1) || (!ipaddr.isValid(dns2))) {
+                this.networkValid = false;
+                this.networkError.push(this.translateService.instant('APP_DNS_INVALID'));
+                return;
+            }
         }
         this.networkValid = true;
-        const dns1 = this.item.cloudVars['dns1'];
-        const dns2 = this.item.cloudVars['dns2'];
-        if (!ipaddr.isValid(dns1) || (!ipaddr.isValid(dns2))) {
-            this.networkValid = false;
-            this.networkError.push(this.translateService.instant('APP_DNS_INVALID'));
-            return;
-        }
-
     }
 
 }

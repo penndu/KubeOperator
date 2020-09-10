@@ -67,7 +67,7 @@ Release Note:https://blog.fit2cloud.com/?p=1087
 - [x] Excel批量导入主机；
 - [x] 手动模式集群批量扩容；
 
-Release Note:https://blog.fit2cloud.com/?p=1126
+Release Note: https://blog.fit2cloud.com/?p=1126
 
  ##  v2.6 （已发布）
 
@@ -77,15 +77,37 @@ Release Note:https://blog.fit2cloud.com/?p=1126
 - [x] vSphere 创建虚机时支持选用自有模板；
 - [x] 支持更新 apiserver 证书。
 
- ##  V3.0 （开发中，8月18日发布）
+Release Note: https://blog.fit2cloud.com/?p=1219
+
+ ##  v3.0 （已发布）
  
-- [ ] 开放 REST API;
-- [ ] 支持 国际化 i18n；
-- [ ] 支持 kubeadm 部署；
-- [ ] 支持 arm64 平台架构；
-- [ ] 使用 out-of-tree 的网络和存储插件；
-- [ ] 支持在线和离线安装模式；
-- [ ] 组件升级，包括 Helm 3.x、Traefik 2.x、Kubeapps等；
-- [ ] 集成 cert-manager；
-- [ ] 支持 containerd；
-- [ ] 支持已有集群导入。
+- [x] 开放 REST API;
+- [x] 支持 国际化 i18n；
+- [x] 支持 kubeadm 部署；
+- [x] 支持 arm64 平台架构；
+- [x] 支持在线和离线安装模式；
+- [x] 组件升级，包括 Helm 3.x、Traefik 2.x、Kubeapps等；
+- [x] 集成 cert-manager；
+- [x] 支持 containerd；
+- [x] 支持已有集群导入。
+
+Release Note: https://blog.fit2cloud.com/?p=1416
+
+ ##  v3.1 （开发中，预计 9 月 10 号）
+ 
+ - [ ] K8s 版本历史及集群版本升级功能优化；
+ - [ ] 集成 CIS 安全扫描；
+ - [ ] 集群事件；
+ - [ ] 集群 ETCD 定时备份和自定义恢复；
+ - [ ] 自定义 Logo 和 配色 （X-Pack）；
+ - [ ] LDAP 对接（X-Pack）；
+ 
+  ##  v3.2 （计划中）
+ 
+ - [ ] 集群日志，支持 Loki 或者 EFK；
+ - [ ] FusionCompute 支持自动部署模式；
+ - [ ] FusionStorage CSI 支持；
+ - [ ] GPU 支持；
+ - [ ] 消息中心，支持邮箱、钉钉、微信（X-Pack）；
+ - [ ] 集群健康（X-Pack）；
+ - [ ] F5 对接（X-Pack）；

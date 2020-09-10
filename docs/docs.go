@@ -33,6 +33,40 @@ var doc = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/auth/login/": {
+            "post": {
+                "description": "Get login token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Get login token",
+                "parameters": [
+                    {
+                        "description": "request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.Credential"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/auth.JwtResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/backupAccounts/": {
             "get": {
                 "security": [
@@ -142,7 +176,7 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "delete a  backupAccount by name",
+                "description": "delete a  credential by name",
                 "consumes": [
                     "application/json"
                 ],
@@ -150,9 +184,9 @@ var doc = `{
                     "application/json"
                 ],
                 "tags": [
-                    "backupAccounts"
+                    "credentials"
                 ],
-                "summary": "Delete a backupAccount"
+                "summary": "Delete a credential"
             },
             "patch": {
                 "security": [
@@ -382,7 +416,7 @@ var doc = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Show a cluster",
+                "description": "Show clusters",
                 "consumes": [
                     "application/json"
                 ],
@@ -392,12 +426,12 @@ var doc = `{
                 "tags": [
                     "clusters"
                 ],
-                "summary": "Show a cluster",
+                "summary": "Show all clusters",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Cluster"
+                            "$ref": "#/definitions/page.Page"
                         }
                     }
                 }
@@ -440,7 +474,53 @@ var doc = `{
                 }
             }
         },
+        "/clusters/import/": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "import a cluster",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clusters"
+                ],
+                "summary": "Import a cluster"
+            }
+        },
         "/clusters/{name}/": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Show a cluster",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clusters"
+                ],
+                "summary": "Show a cluster",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Cluster"
+                        }
+                    }
+                }
+            },
             "delete": {
                 "security": [
                     {
@@ -1360,12 +1440,70 @@ var doc = `{
         }
     },
     "definitions": {
+        "auth.Credential": {
+            "type": "object",
+            "properties": {
+                "language": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "auth.JwtResponse": {
+            "type": "object",
+            "properties": {
+                "permissions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/permission.UserPermission"
+                    }
+                },
+                "roleMenus": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/permission.UserMenu"
+                    }
+                },
+                "token": {
+                    "type": "string"
+                },
+                "user": {
+                    "type": "object",
+                    "$ref": "#/definitions/auth.SessionUser"
+                }
+            }
+        },
+        "auth.SessionUser": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "isActive": {
+                    "type": "boolean"
+                },
+                "isAdmin": {
+                    "type": "boolean"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.BackupAccount": {
             "type": "object",
             "properties": {
-                "_": {
-                    "type": "string"
-                },
                 "bucket": {
                     "type": "string"
                 },
@@ -1495,10 +1633,6 @@ var doc = `{
         "dto.ClusterBackupStrategy": {
             "type": "object",
             "properties": {
-                "_": {
-                    "type": "object",
-                    "$ref": "#/definitions/model.BackupAccount"
-                },
                 "backupAccountId": {
                     "type": "string"
                 },
@@ -1715,9 +1849,6 @@ var doc = `{
         "dto.Host": {
             "type": "object",
             "properties": {
-                "_": {
-                    "type": "string"
-                },
                 "clusterId": {
                     "type": "string"
                 },
@@ -1832,11 +1963,10 @@ var doc = `{
                 "planVars": {
                     "type": "object"
                 },
-                "region": {
-                    "type": "object",
-                    "$ref": "#/definitions/model.Region"
-                },
                 "regionId": {
+                    "type": "string"
+                },
+                "regionName": {
                     "type": "string"
                 },
                 "updatedAt": {
@@ -1845,10 +1975,10 @@ var doc = `{
                 "vars": {
                     "type": "string"
                 },
-                "zones": {
+                "zoneNames": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/model.Zone"
+                        "type": "string"
                     }
                 }
             }
@@ -1883,7 +2013,6 @@ var doc = `{
                     "type": "string"
                 },
                 "zones": {
-                    "description": "RegionId       string      ` + "`" + `json:\"regionId\" validate:\"required\"` + "`" + `",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -1894,12 +2023,6 @@ var doc = `{
         "dto.Project": {
             "type": "object",
             "properties": {
-                "clusters": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/model.Cluster"
-                    }
-                },
                 "createdAt": {
                     "type": "string"
                 },
@@ -1934,10 +2057,6 @@ var doc = `{
         "dto.ProjectMember": {
             "type": "object",
             "properties": {
-                "_": {
-                    "type": "object",
-                    "$ref": "#/definitions/model.User"
-                },
                 "createdAt": {
                     "type": "string"
                 },
@@ -2076,6 +2195,9 @@ var doc = `{
                 "password": {
                     "type": "string"
                 },
+                "type": {
+                    "type": "string"
+                },
                 "updatedAt": {
                     "type": "string"
                 }
@@ -2153,11 +2275,13 @@ var doc = `{
                 "name": {
                     "type": "string"
                 },
-                "region": {
-                    "type": "object",
-                    "$ref": "#/definitions/dto.Region"
+                "provider": {
+                    "type": "string"
                 },
                 "regionID": {
+                    "type": "string"
+                },
+                "regionName": {
                     "type": "string"
                 },
                 "status": {
@@ -2200,9 +2324,6 @@ var doc = `{
         "model.BackupAccount": {
             "type": "object",
             "properties": {
-                "_": {
-                    "type": "string"
-                },
                 "bucket": {
                     "type": "string"
                 },
@@ -2226,34 +2347,9 @@ var doc = `{
                 }
             }
         },
-        "model.Cluster": {
-            "type": "object",
-            "properties": {
-                "createdAt": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "source": {
-                    "type": "string"
-                },
-                "spec": {
-                    "type": "object",
-                    "$ref": "#/definitions/model.ClusterSpec"
-                },
-                "updatedAt": {
-                    "type": "string"
-                }
-            }
-        },
         "model.ClusterBackupFile": {
             "type": "object",
             "properties": {
-                "_": {
-                    "type": "object",
-                    "$ref": "#/definitions/model.ClusterBackupStrategy"
-                },
                 "clusterBackupStrategyId": {
                     "type": "string"
                 },
@@ -2270,39 +2366,6 @@ var doc = `{
                     "type": "string"
                 },
                 "name": {
-                    "type": "string"
-                },
-                "updatedAt": {
-                    "type": "string"
-                }
-            }
-        },
-        "model.ClusterBackupStrategy": {
-            "type": "object",
-            "properties": {
-                "_": {
-                    "type": "object",
-                    "$ref": "#/definitions/model.BackupAccount"
-                },
-                "backupAccountId": {
-                    "type": "string"
-                },
-                "clusterId": {
-                    "type": "string"
-                },
-                "createdAt": {
-                    "type": "string"
-                },
-                "cron": {
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "saveNum": {
-                    "type": "integer"
-                },
-                "status": {
                     "type": "string"
                 },
                 "updatedAt": {
@@ -2384,64 +2447,6 @@ var doc = `{
                 }
             }
         },
-        "model.Region": {
-            "type": "object",
-            "properties": {
-                "createdAt": {
-                    "type": "string"
-                },
-                "datacenter": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "provider": {
-                    "type": "string"
-                },
-                "updatedAt": {
-                    "type": "string"
-                },
-                "vars": {
-                    "type": "string"
-                }
-            }
-        },
-        "model.User": {
-            "type": "object",
-            "properties": {
-                "createdAt": {
-                    "type": "string"
-                },
-                "email": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "isActive": {
-                    "type": "boolean"
-                },
-                "isAdmin": {
-                    "type": "boolean"
-                },
-                "language": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string"
-                },
-                "updatedAt": {
-                    "type": "string"
-                }
-            }
-        },
         "model.Volume": {
             "type": "object",
             "properties": {
@@ -2465,39 +2470,6 @@ var doc = `{
                 }
             }
         },
-        "model.Zone": {
-            "type": "object",
-            "properties": {
-                "createdAt": {
-                    "type": "string"
-                },
-                "credentialId": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "region": {
-                    "type": "object",
-                    "$ref": "#/definitions/model.Region"
-                },
-                "regionID": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "updatedAt": {
-                    "type": "string"
-                },
-                "vars": {
-                    "type": "string"
-                }
-            }
-        },
         "page.Page": {
             "type": "object",
             "properties": {
@@ -2506,6 +2478,57 @@ var doc = `{
                 },
                 "total": {
                     "type": "integer"
+                }
+            }
+        },
+        "permission.UserMenu": {
+            "type": "object",
+            "properties": {
+                "menus": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "projectId": {
+                    "type": "string"
+                },
+                "projectName": {
+                    "type": "string"
+                }
+            }
+        },
+        "permission.UserPermission": {
+            "type": "object",
+            "properties": {
+                "projectId": {
+                    "type": "string"
+                },
+                "projectName": {
+                    "type": "string"
+                },
+                "projectRole": {
+                    "type": "string"
+                },
+                "userPermissionRoles": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/permission.UserPermissionRole"
+                    }
+                }
+            }
+        },
+        "permission.UserPermissionRole": {
+            "type": "object",
+            "properties": {
+                "operation": {
+                    "type": "string"
+                },
+                "roles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         }
@@ -2531,7 +2554,7 @@ type swaggerInfo struct {
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = swaggerInfo{
 	Version:     "",
-	Host:        "localhost:8080",
+	Host:        "",
 	BasePath:    "/api/v1",
 	Schemes:     []string{},
 	Title:       "KubeOperator Restful API",

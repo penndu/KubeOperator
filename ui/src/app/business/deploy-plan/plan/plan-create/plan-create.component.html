@@ -55,6 +55,7 @@
                     <option *ngFor="let zone of zones" [value]="zone.id">{{zone.name}}</option>
                 </select>
                 <clr-control-error>{{'APP_REQUIRED_ERROR'|translate}}</clr-control-error>
+                <clr-control-helper>{{'APP_ZONE_HELPER'|translate}}</clr-control-helper>
             </clr-select-container>
 
             <clr-select-container *ngIf="item.deployTemplate === 'MULTIPLE'">
@@ -64,6 +65,8 @@
                     <option *ngFor="let zone of zones" [value]="zone.id">{{zone.name}}</option>
                 </select>
                 <clr-control-error>{{'APP_REQUIRED_ERROR'|translate}}</clr-control-error>
+                <clr-control-helper>{{'APP_ZONE_HELPER'|translate}}</clr-control-helper>
+                <clr-control-helper></clr-control-helper>
             </clr-select-container>
             <clr-select-container>
                 <label>{{'APP_PLAN_DEPLOY_MASTER'|translate}}</label>
@@ -84,13 +87,14 @@
         </form>
         <div *ngIf="vmConfigs">
             <h3>{{'APP_PLAN_DEPLOY_CONFIG_REFERENCE'|translate}}</h3>
+            <p class="p7 prompt" *ngIf="currentProvider=='vSphere'">{{'APP_PLAN_VSPHERE_MSG'|translate}}</p>
             <table class="table">
                 <thead>
                 <tr>
                     <th>{{'APP_CONFIG'|translate}}</th>
                     <th>{{'APP_CPU'|translate}}</th>
                     <th>{{'APP_HOST_MEMORY_GB'|translate}}</th>
-                    <th>{{'APP_HOST_DISK'|translate}}</th>
+                    <th *ngIf="currentProvider=='OpenStack'">{{'APP_HOST_DISK'|translate}}</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -98,7 +102,7 @@
                     <td>{{model.name}}</td>
                     <td>{{model.config.cpu}}</td>
                     <td>{{model.config.memory}}</td>
-                    <td>{{model.config.disk}}</td>
+                    <td *ngIf="currentProvider=='OpenStack'">{{model.config.disk}}</td>
                 </tr>
                 </tbody>
             </table>

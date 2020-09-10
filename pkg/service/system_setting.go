@@ -15,11 +15,13 @@ type SystemSettingService interface {
 
 type systemSettingService struct {
 	systemSettingRepo repository.SystemSettingRepository
+	userRepo          repository.UserRepository
 }
 
 func NewSystemSettingService() SystemSettingService {
 	return &systemSettingService{
 		systemSettingRepo: repository.NewSystemSettingRepository(),
+		userRepo:          repository.NewUserRepository(),
 	}
 }
 

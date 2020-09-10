@@ -11,10 +11,10 @@ export class ToolsService {
     constructor(private http: HttpClient) {
     }
 
-    baseUrl = '/api/v1/clusters/tool/{operation}/{cluster_name}/';
+    baseUrl = '/api/v1/clusters/tool/{operation}/{cluster_name}';
 
     list(clusterName: string): Observable<ClusterTool[]> {
-        return this.http.get<ClusterTool[]>(this.baseUrl.replace('{operation}', '').replace('{cluster_name}', clusterName));
+        return this.http.get<ClusterTool[]>(this.baseUrl.replace('/{operation}', '').replace('{cluster_name}', clusterName));
     }
 
     enable(clusterName: string, item: ClusterTool): Observable<ClusterTool> {

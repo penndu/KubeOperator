@@ -160,6 +160,26 @@ func (c Cluster) BeforeDelete() error {
 			}
 		}
 	}
+	var cisTasks []CisTask
+	db.DB.Where(CisTask{ClusterID: c.ID}).Find(&cisTasks)
+	if len(cisTasks) > 0 {
+		for _, task := range cisTasks {
+			if err := tx.Delete(&task).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+	}
+	var storageProvisioners []ClusterStorageProvisioner
+	db.DB.Where(ClusterStorageProvisioner{ClusterID: c.ID}).Find(&storageProvisioners)
+	if len(storageProvisioners) > 0 {
+		for _, p := range storageProvisioners {
+			if err := tx.Delete(&p).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+	}
 
 	var projectResource ProjectResource
 	if err := tx.Where(ProjectResource{ResourceId: c.ID, ResourceType: constant.ResourceCluster}).Delete(&projectResource).Error; err != nil {
@@ -187,7 +207,7 @@ func (c Cluster) PrepareTools() []ClusterTool {
 	return []ClusterTool{
 		{
 			Name:         "dashboard",
-			Version:      "v1.0.0",
+			Version:      "v2.0.3",
 			Describe:     "",
 			Status:       constant.ClusterWaiting,
 			Logo:         "kubernetes.png",
@@ -197,7 +217,7 @@ func (c Cluster) PrepareTools() []ClusterTool {
 		},
 		{
 			Name:         "kubeapps",
-			Version:      "v1.0.0",
+			Version:      "v1.10.2",
 			Describe:     "",
 			Status:       constant.ClusterWaiting,
 			Logo:         "kubeapps.png",
@@ -207,7 +227,7 @@ func (c Cluster) PrepareTools() []ClusterTool {
 		},
 		{
 			Name:         "prometheus",
-			Version:      "v1.0.0",
+			Version:      "v2.18.1",
 			Describe:     "",
 			Status:       constant.ClusterWaiting,
 			Logo:         "prometheus.png",
@@ -217,7 +237,7 @@ func (c Cluster) PrepareTools() []ClusterTool {
 		},
 		{
 			Name:         "chartmuseum",
-			Version:      "v1.0.0",
+			Version:      "v0.12.0",
 			Describe:     "",
 			Status:       constant.ClusterWaiting,
 			Logo:         "chartmuseum.png",
@@ -227,7 +247,7 @@ func (c Cluster) PrepareTools() []ClusterTool {
 		},
 		{
 			Name:         "registry",
-			Version:      "v1.0.0",
+			Version:      "v2.7.1",
 			Describe:     "",
 			Status:       constant.ClusterWaiting,
 			Logo:         "registry.png",

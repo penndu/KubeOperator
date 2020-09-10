@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/KubeOperator/KubeOperator/pkg/cloud_storage"
 	"github.com/KubeOperator/KubeOperator/pkg/constant"
 	"github.com/KubeOperator/KubeOperator/pkg/controller/page"
@@ -11,6 +12,9 @@ import (
 	"github.com/KubeOperator/KubeOperator/pkg/repository"
 	"github.com/KubeOperator/KubeOperator/pkg/service/cluster/adm"
 	"github.com/KubeOperator/KubeOperator/pkg/service/cluster/adm/phases/backup"
+	"github.com/jinzhu/gorm"
+	"io/ioutil"
+	"os"
 	"time"
 )
 
@@ -21,6 +25,7 @@ type CLusterBackupFileService interface {
 	Backup(creation dto.ClusterBackupFileCreate) error
 	Restore(restore dto.ClusterBackupFileRestore) error
 	Delete(name string) error
+	LocalRestore(clusterName string, file []byte) error
 }
 
 type cLusterBackupFileService struct {
@@ -136,6 +141,22 @@ func (c cLusterBackupFileService) Delete(name string) error {
 }
 
 func (c cLusterBackupFileService) Backup(creation dto.ClusterBackupFileCreate) error {
+
+	backupLog, err := c.clusterLogService.GetRunningLogWithClusterNameAndType(creation.ClusterName, constant.ClusterLogTypeBackup)
+	if err != nil && !gorm.IsRecordNotFoundError(err) {
+		return err
+	}
+	if backupLog.ID != "" {
+		return errors.New("CLUSTER_IS_BACKUP")
+	}
+
+	restoreLog, err := c.clusterLogService.GetRunningLogWithClusterNameAndType(creation.ClusterName, constant.ClusterLogTypeRestore)
+	if err != nil && !gorm.IsRecordNotFoundError(err) {
+		return err
+	}
+	if restoreLog.ID != "" {
+		return errors.New("CLUSTER_IS_RESTORE")
+	}
 
 	cluster, err := c.clusterService.Get(creation.ClusterName)
 	if err != nil {
@@ -277,4 +298,57 @@ func (c cLusterBackupFileService) doRestore(restore dto.ClusterBackupFileRestore
 	} else {
 		_ = c.clusterLogService.End(&clog, true, "")
 	}
+}
+
+func (c cLusterBackupFileService) LocalRestore(clusterName string, file []byte) error {
+	clusterPath := constant.BackupDir + "/" + clusterName
+	targetPath := clusterPath + "/" + constant.BackupFileDefaultName
+	_, err := os.Stat(targetPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			os.Mkdir(clusterPath, os.ModePerm)
+		} else {
+			return err
+		}
+	}
+	_, err = os.Create(targetPath)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(targetPath, file, 0775)
+	if err != nil {
+		return err
+	}
+	cluster, err := c.clusterService.Get(clusterName)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		var clog model.ClusterLog
+		clog.Type = constant.ClusterLogTypeRestore
+		clog.StartTime = time.Now()
+		clog.EndTime = time.Now()
+		err = c.clusterLogService.Save(cluster.Name, &clog)
+		if err != nil {
+			log.Error(err)
+		}
+		err = c.clusterLogService.Start(&clog)
+		if err != nil {
+			log.Error(err)
+		}
+
+		admCluster := adm.NewCluster(cluster.Cluster)
+		p := &backup.RestoreClusterCustomPhase{
+			BackupFileName: constant.BackupFileDefaultName,
+		}
+		err = p.Run(admCluster.Kobe)
+
+		if err != nil {
+			_ = c.clusterLogService.End(&clog, false, err.Error())
+		} else {
+			_ = c.clusterLogService.End(&clog, true, "")
+		}
+	}()
+	return nil
 }

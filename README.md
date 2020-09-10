@@ -12,11 +12,9 @@ KubeOperator 提供可视化的 Web UI，支持离线环境，支持物理机、
 
 KubeOperator 使用 Terraform 在 IaaS 平台上自动创建主机（用户也可以自行准备主机，比如物理机或者虚机），通过 Ansible 完成自动化部署和变更操作，支持 Kubernetes 集群 从 Day 0 规划，到 Day 1 部署，到 Day 2 运营的全生命周期管理。
 
-KubeOperator 的整体架构：
+## 整体架构
 
 ![Architecture](https://kubeoperator.io/images/screenshot/ko-framework.svg)
-
-> 注： KubeOperator 已通过云原生基金会（CNCF）的 [Kubernetes 软件一致性认证](https://landscape.cncf.io/selected=kube-operator)。
 
 ## Web UI 展示
 
@@ -29,7 +27,7 @@ KubeOperator 的整体架构：
 仅需两步快速安装 KubeOperator：
 
  1. 准备一台不小于 8 G内存的 64位 Linux 主机；
- 2. 以 root 用户执行如下命令一键安装 MeterSphere。
+ 2. 以 root 用户执行如下命令一键安装 KubeOperator。
 
 ```sh
 curl -sSL https://github.com/KubeOperator/KubeOperator/releases/latest/download/quick_start.sh | sh
@@ -38,8 +36,24 @@ curl -sSL https://github.com/KubeOperator/KubeOperator/releases/latest/download/
 文档和演示视频：
 
 - [完整文档](https://kubeoperator.io/docs/)
-- [演示视频](https://kubeoperator-1256577600.file.myqcloud.com/video/KubeOperator2.1.mp4)
+- [演示视频](https://www.bilibili.com/video/BV1jT4y1L7Ur/)
 - [PPT 介绍](https://kubeoperator.io/download/KubeOperator_Intro.pdf)
+
+## KubeOperator 企业版
+
+- [申请企业版试用](https://jinshuju.net/f/qc6g44/)
+
+>注：企业版支持离线安装，申请通过后会提供高速下载链接。
+
+## 版本说明
+
+KubeOperator 版本号命名规则为：v大版本.功能版本.Bug修复版本。比如：
+
+```
+v1.0.1 是 v1.0.0 之后的Bug修复版本；
+v1.1.0 是 v1.0.0 之后的功能版本。
+```
+像其它优秀开源项目一样，KubeOperator 将每月发布一个功能版本。
 
 ## 技术优势
 
@@ -256,7 +270,7 @@ curl -sSL https://github.com/KubeOperator/KubeOperator/releases/latest/download/
 ## 支持组件
 
 - 核心
-  - [kubernetes](https://github.com/kubernetes/kubernetes) v1.18.4
+  - [kubernetes](https://github.com/kubernetes/kubernetes) v1.18.8
   - [etcd](https://github.com/coreos/etcd) v3.4.9
   - [docker](https://www.docker.com/) v19.03.9
   - [containerd](https://containerd.io/) v1.3.6

@@ -1,15 +1,21 @@
-import { Component, OnInit } from '@angular/core';
+import {Component, OnInit} from '@angular/core';
+import {LicenseService} from "./license/license.service";
 
 @Component({
-  selector: 'app-setting',
-  templateUrl: './setting.component.html',
-  styleUrls: ['./setting.component.css']
+    selector: 'app-setting',
+    templateUrl: './setting.component.html',
+    styleUrls: ['./setting.component.css']
 })
 export class SettingComponent implements OnInit {
 
-  constructor() { }
+    constructor(private licenseService: LicenseService) {
+    }
 
-  ngOnInit(): void {
-  }
+    hasLicense = false;
 
+    ngOnInit(): void {
+        this.licenseService.get().subscribe(data => {
+            this.hasLicense = true;
+        });
+    }
 }

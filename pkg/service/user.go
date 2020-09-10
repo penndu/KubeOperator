@@ -2,13 +2,14 @@ package service
 
 import (
 	"errors"
-	"github.com/KubeOperator/KubeOperator/pkg/auth"
+	"github.com/KubeOperator/KubeOperator/pkg/constant"
 	"github.com/KubeOperator/KubeOperator/pkg/controller/page"
 	"github.com/KubeOperator/KubeOperator/pkg/db"
 	"github.com/KubeOperator/KubeOperator/pkg/dto"
 	"github.com/KubeOperator/KubeOperator/pkg/model"
 	"github.com/KubeOperator/KubeOperator/pkg/repository"
 	"github.com/KubeOperator/KubeOperator/pkg/util/encrypt"
+	"github.com/KubeOperator/KubeOperator/pkg/util/ldap"
 )
 
 var (
@@ -17,6 +18,7 @@ var (
 	UserNotFound     = errors.New("USER_NOT_FOUND")
 	UserIsNotActive  = errors.New("USER_IS_NOT_ACTIVE")
 	UserNameExist    = errors.New("NAME_EXISTS")
+	LdapDisable      = errors.New("LDAP_DISABLE")
 )
 
 type UserService interface {
@@ -31,12 +33,14 @@ type UserService interface {
 }
 
 type userService struct {
-	userRepo repository.UserRepository
+	userRepo      repository.UserRepository
+	systemService SystemSettingService
 }
 
 func NewUserService() UserService {
 	return &userService{
-		userRepo: repository.NewUserRepository(),
+		userRepo:      repository.NewUserRepository(),
+		systemService: NewSystemSettingService(),
 	}
 }
 
@@ -80,6 +84,7 @@ func (u userService) Create(creation dto.UserCreate) (*dto.User, error) {
 		IsActive: true,
 		Language: model.ZH,
 		IsAdmin:  creation.IsAdmin,
+		Type:     constant.Local,
 	}
 	err = u.userRepo.Save(&user)
 	if err != nil {
@@ -103,6 +108,7 @@ func (u userService) Update(update dto.UserUpdate) (*dto.User, error) {
 		Language: update.Language,
 		IsAdmin:  update.IsAdmin,
 		Password: update.Password,
+		Type:     constant.Local,
 	}
 	err = u.userRepo.Save(&user)
 	if err != nil {
@@ -165,7 +171,7 @@ func (u userService) ChangePassword(ch dto.UserChangePassword) error {
 	return err
 }
 
-func UserAuth(name string, password string) (sessionUser *auth.SessionUser, err error) {
+func UserAuth(name string, password string) (user *model.User, err error) {
 	var dbUser model.User
 	if db.DB.Where("name = ?", name).First(&dbUser).RecordNotFound() {
 		if db.DB.Where("email = ?", name).First(&dbUser).RecordNotFound() {
@@ -173,14 +179,38 @@ func UserAuth(name string, password string) (sessionUser *auth.SessionUser, err 
 		}
 	}
 	if dbUser.IsActive == false {
-		return dbUser.ToSessionUser(), UserIsNotActive
+		return nil, UserIsNotActive
 	}
-	password, err = encrypt.StringEncrypt(password)
-	if err != nil {
-		return nil, err
+
+	if dbUser.Type == constant.Ldap {
+		enable, err := NewSystemSettingService().Get("ldap_status")
+		if err != nil {
+			return nil, err
+		}
+		if enable.Value == "DISABLE" {
+			return nil, LdapDisable
+		}
+		result, err := NewSystemSettingService().List()
+		if err != nil {
+			return nil, err
+		}
+		ldapClient := ldap.NewLdap(result.Vars)
+		err = ldapClient.Connect()
+		if err != nil {
+			return nil, err
+		}
+		err = ldapClient.Login(name, password)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		password, err = encrypt.StringEncrypt(password)
+		if err != nil {
+			return nil, err
+		}
+		if dbUser.Password != password {
+			return nil, PasswordNotMatch
+		}
 	}
-	if dbUser.Password != password {
-		return nil, PasswordNotMatch
-	}
-	return dbUser.ToSessionUser(), nil
+	return &dbUser, nil
 }

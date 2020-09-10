@@ -32,8 +32,12 @@ export class UserUpdateComponent extends BaseModelComponent<User> implements OnI
     }
 
     open(item) {
+        if (item.type === 'LDAP') {
+            this.commonAlertService.showAlert(this.translateService.instant('APP_USER_LDAP_UPDATE_ERROR'), AlertLevels.ERROR);
+            return;
+        }
         this.opened = true;
-        this.item = item;
+        Object.assign(this.item, item);
     }
 
     onCancel() {

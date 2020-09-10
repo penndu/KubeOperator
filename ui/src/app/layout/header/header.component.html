@@ -2,7 +2,8 @@
 <app-about></app-about>
 <header class="header-6">
     <div class="branding">
-        <img src="assets/images/logo-white.png" height="40" style="margin-top: 10px">
+        <img *ngIf="!logo" src="assets/images/logo-white.png" height="40" style="margin-top: 10px" alt="logo">
+        <img *ngIf="logo" [src]="logo" height="40" style="margin-top: 10px" alt="logo">
     </div>
     <div class="header-actions">
         <clr-dropdown class="dropdown">
@@ -12,6 +13,7 @@
                 <clr-icon shape="caret down"></clr-icon>
             </button>
             <clr-dropdown-menu [clrPosition]="'bottom-right'">
+                <a href="javascript:void(0)" clrDropdownItem (click)="openSwagger()">REST API</a>
                 <a href="javascript:void(0)" clrDropdownItem (click)="openDoc()">{{'APP_DOCUMENTATION'|translate}}</a>
                 <a href="javascript:void(0)" clrDropdownItem (click)="openAbout()">{{'APP_ABOUT'|translate}}</a>
             </clr-dropdown-menu>

@@ -9,7 +9,7 @@ import {Observable} from 'rxjs';
 })
 export class SystemService extends BaseModelService<System> {
 
-    baseUrl = '/api/v1/systemSettings';
+    baseUrl = '/api/v1/settings';
 
     constructor(http: HttpClient) {
         super(http);
@@ -18,5 +18,10 @@ export class SystemService extends BaseModelService<System> {
     singleGet(): Observable<System> {
         const itemUrl = `${this.baseUrl}`;
         return this.http.get<System>(itemUrl);
+    }
+
+    getIp(): Observable<string> {
+        const itemUrl = `${this.baseUrl}/ip`;
+        return this.http.get<string>(itemUrl);
     }
 }

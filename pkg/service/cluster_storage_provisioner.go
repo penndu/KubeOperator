@@ -89,7 +89,7 @@ func (c clusterStorageProvisionerService) CreateStorageProvisioner(clusterName s
 func (c clusterStorageProvisionerService) do(cluster model.Cluster, provisioner model.ClusterStorageProvisioner) {
 	admCluster := adm.NewCluster(cluster)
 	p := getPhase(provisioner)
-	err := p.Run(admCluster.Kobe)
+	err := p.Run(admCluster.Kobe, nil)
 	if err != nil {
 		provisioner.Status = constant.ClusterFailed
 		provisioner.Message = err.Error()
@@ -130,6 +130,17 @@ func getPhase(provisioner model.ClusterStorageProvisioner) phases.Interface {
 		p = &storage.ExternalCephStoragePhase{
 			ProvisionerName: provisioner.Name,
 		}
+	case "oceanstor":
+		p = &storage.OceanStorPhase{
+			OceanStorType:     fmt.Sprintf("%v", vars["oceanstor_type"]),
+			OceanstorProduct:  fmt.Sprintf("%v", vars["oceanstor_product"]),
+			OceanstorURLs:     fmt.Sprintf("%v", vars["oceanstor_urls"]),
+			OceanstorUser:     fmt.Sprintf("%v", vars["oceanstor_user"]),
+			OceanstorPassword: fmt.Sprintf("%v", vars["oceanstor_password"]),
+			OceanstorPools:    fmt.Sprintf("%v", vars["oceanstor_pools"]),
+			OceanstorPortal:   fmt.Sprintf("%v", vars["oceanstor_portal"]),
+		}
 	}
+
 	return p
 }

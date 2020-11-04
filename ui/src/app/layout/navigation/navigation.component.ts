@@ -1,15 +1,27 @@
-import { Component, OnInit } from '@angular/core';
+import {Component, OnInit} from '@angular/core';
+import {LicenseService} from '../../business/setting/license/license.service';
+import {SessionService} from "../../shared/auth/session.service";
+import {SessionUser} from "../../shared/auth/session-user";
 
 @Component({
-  selector: 'app-navigation',
-  templateUrl: './navigation.component.html',
-  styleUrls: ['./navigation.component.css']
+    selector: 'app-navigation',
+    templateUrl: './navigation.component.html',
+    styleUrls: ['./navigation.component.css']
 })
 export class NavigationComponent implements OnInit {
 
-  constructor() { }
+    constructor(private licenseService: LicenseService, private sessionService: SessionService) {
+    }
 
-  ngOnInit(): void {
-  }
+    hasLicense = false;
+    user: SessionUser;
+
+    ngOnInit(): void {
+        this.licenseService.get().subscribe(data => {
+            this.hasLicense = true;
+        });
+        const profile = this.sessionService.getCacheProfile();
+        this.user = profile.user;
+    }
 
 }

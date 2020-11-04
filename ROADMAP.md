@@ -45,8 +45,8 @@ Release Note: https://blog.fit2cloud.com/?p=980
  ## v2.3 （已发布）
 
 - [x] KubeApps Plus 应用商店；
-- [x] GPU 支持;
-- [x] 支持 Local Persistent Volumes;
+- [x] GPU 支持；
+- [x] 支持 Local Persistent Volumes；
 
 Release Note: https://blog.fit2cloud.com/?p=1032
 
@@ -58,10 +58,10 @@ Release Note:https://blog.fit2cloud.com/?p=1087
 
  ##  v2.5 （已发布）
  
-- [x] LDAP/AD 对接; 
+- [x] LDAP/AD 对接； 
 - [x] 消息中心；
 - [x] 应用商店增加 [Argo CD](https://github.com/argoproj/argo-cd)，完整覆盖 CI 到 CD 的场景；
-- [x] 集群健康评分;
+- [x] 集群健康评分；
 - [x] 将部分内置应用移到应用商店；
 - [x] 支持 ingress-nginx，用户可选 ingress-nginx 或者 Traefik
 - [x] Excel批量导入主机；
@@ -81,7 +81,7 @@ Release Note: https://blog.fit2cloud.com/?p=1219
 
  ##  v3.0 （已发布）
  
-- [x] 开放 REST API;
+- [x] 开放 REST API；
 - [x] 支持 国际化 i18n；
 - [x] 支持 kubeadm 部署；
 - [x] 支持 arm64 平台架构；
@@ -93,21 +93,43 @@ Release Note: https://blog.fit2cloud.com/?p=1219
 
 Release Note: https://blog.fit2cloud.com/?p=1416
 
- ##  v3.1 （开发中，预计 9 月 10 号）
+ ##  v3.1 （已发布）
  
- - [ ] K8s 版本历史及集群版本升级功能优化；
- - [ ] 集成 CIS 安全扫描；
- - [ ] 集群事件；
- - [ ] 集群 ETCD 定时备份和自定义恢复；
- - [ ] 自定义 Logo 和 配色 （X-Pack）；
- - [ ] LDAP 对接（X-Pack）；
+ - [x] K8s 版本历史及集群版本升级功能优化；
+ - [x] 集成 CIS 安全扫描；
+ - [x] 集群事件；
+ - [x] 集群 ETCD 定时备份和自定义恢复；
+ - [x] 自定义 Logo 和 配色 （X-Pack）；
+ - [x] LDAP 对接（X-Pack）；
  
-  ##  v3.2 （计划中）
+ Release Note: https://blog.fit2cloud.com/?p=1480
  
- - [ ] 集群日志，支持 Loki 或者 EFK；
+ ##  v3.2 （已发布）
+ 
+ - [x] 增加消息中心（X-Pack）；
+ - [x] 支持邮箱、钉钉、企业微信告警（X-Pack）；
+ - [x] 支持实时查看任务执行返回日志；
+ - [x] 应用商店增加 Redmine；
+ 
+ ## v3.3 (开发中，计划 11 月 12 日发布)
+
  - [ ] FusionCompute 支持自动部署模式；
  - [ ] FusionStorage CSI 支持；
- - [ ] GPU 支持；
- - [ ] 消息中心，支持邮箱、钉钉、微信（X-Pack）；
- - [ ] 集群健康（X-Pack）；
+ - [ ] 集群日志，支持 EFK；
+ - [ ] 集群健康评估（X-Pack）；
  - [ ] F5 对接（X-Pack）；
+ - [ ] 支持动态管理 Kubernetes 及组件版本；
+ - [ ] 自动模式支持自定义 cpu、内存规格；
+ - [ ] 集群创建支持指定网卡信息、helm版本；
+ - [ ] 支持登录验证码；
+ - [ ] 支持添加、删除 namespace；
+ - [ ] 集群事件支持启用、禁用 npd；
+ - [ ] 支持 session 和 jwt 两种认证方式；
+
+ ## v3.3 (计划中)
+ 
+ - [ ] 多集群配置管理（X-Pack）；
+ - [ ] GPU 支持；
+ - [ ] 集群日志，支持 Loki；
+ - [ ] 备份支持到本地盘和 SFTP；
+ - [ ] 应用商店增加 Kuboard；

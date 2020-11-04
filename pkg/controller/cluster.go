@@ -6,7 +6,9 @@ import (
 	"github.com/KubeOperator/KubeOperator/pkg/controller/page"
 	"github.com/KubeOperator/KubeOperator/pkg/dto"
 	"github.com/KubeOperator/KubeOperator/pkg/service"
+	"github.com/KubeOperator/KubeOperator/pkg/util/ansible"
 	"github.com/kataras/iris/v12/context"
+	"io"
 )
 
 type ClusterController struct {
@@ -19,6 +21,7 @@ type ClusterController struct {
 	ClusterLogService                service.ClusterLogService
 	ClusterImportService             service.ClusterImportService
 	CisService                       service.CisService
+	ClusterUpgradeService            service.ClusterUpgradeService
 }
 
 func NewClusterController() *ClusterController {
@@ -31,6 +34,7 @@ func NewClusterController() *ClusterController {
 		ClusterLogService:                service.NewClusterLogService(),
 		ClusterImportService:             service.NewClusterImportService(),
 		CisService:                       service.NewCisService(),
+		ClusterUpgradeService:            service.NewClusterUpgradeService(),
 	}
 }
 
@@ -116,6 +120,15 @@ func (c ClusterController) Post() (*dto.Cluster, error) {
 
 func (c ClusterController) PostInitBy(name string) error {
 	return c.ClusterInitService.Init(name)
+}
+
+func (c ClusterController) PostUpgrade() error {
+	var req dto.ClusterUpgrade
+	err := c.Ctx.ReadJSON(&req)
+	if err != nil {
+		return err
+	}
+	return c.ClusterUpgradeService.Upgrade(req)
 }
 
 func (c ClusterController) GetProvisionerBy(name string) ([]dto.ClusterStorageProvisioner, error) {
@@ -222,12 +235,27 @@ func (c ClusterController) PostBatch() error {
 	return nil
 }
 
-func (c ClusterController) GetNodeBy(clusterName string) ([]dto.Node, error) {
-	cns, err := c.ClusterNodeService.List(clusterName)
-	if err != nil {
-		return nil, err
+func (c ClusterController) GetNodeBy(clusterName string) (*dto.NodePage, error) {
+	p, _ := c.Ctx.Values().GetBool("page")
+	if p {
+		num, _ := c.Ctx.Values().GetInt(constant.PageNumQueryKey)
+		size, _ := c.Ctx.Values().GetInt(constant.PageSizeQueryKey)
+		pageItem, err := c.ClusterNodeService.Page(num, size, clusterName)
+		if err != nil {
+			return nil, err
+		}
+		return pageItem, nil
+	} else {
+		var pageItem dto.NodePage
+		cns, err := c.ClusterNodeService.List(clusterName)
+		if err != nil {
+			return nil, err
+		}
+		pageItem.Items = cns
+		pageItem.Total = len(cns)
+		return &pageItem, nil
 	}
-	return cns, nil
+
 }
 
 func (c ClusterController) PostNodeBatchBy(clusterName string) ([]dto.Node, error) {
@@ -302,11 +330,31 @@ func (c ClusterController) PostCisBy(clusterName string) (*dto.CisTask, error) {
 	return c.CisService.Create(clusterName)
 }
 
-func (c ClusterController) PostUpgrade() error {
-	var req dto.ClusterUpgrade
-	err := c.Ctx.ReadJSON(&req)
+type Log struct {
+	Msg string `json:"msg"`
+}
+
+func (c ClusterController) GetLoggerBy(clusterName string) (*Log, error) {
+	cluster, err := c.ClusterService.Get(clusterName)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return c.ClusterService.Upgrade(req)
+	r, err := ansible.GetAnsibleLogReader(cluster.Name, cluster.LogId)
+	if err != nil {
+		return nil, err
+	}
+	var chunk []byte
+	for {
+
+		buffer := make([]byte, 1024)
+		n, err := r.Read(buffer)
+		if err != nil && err != io.EOF {
+			return nil, err
+		}
+		if n == 0 {
+			break
+		}
+		chunk = append(chunk, buffer[:n]...)
+	}
+	return &Log{Msg: string(chunk)}, nil
 }

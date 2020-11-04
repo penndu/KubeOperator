@@ -19,6 +19,7 @@ type Cluster struct {
 	SecretID string        `json:"-"`
 	StatusID string        `json:"-"`
 	PlanID   string        `json:"-"`
+	LogId    string        `json:"logId"`
 	Plan     Plan          `json:"-"`
 	Spec     ClusterSpec   `gorm:"save_associations:false" json:"spec"`
 	Secret   ClusterSecret `gorm:"save_associations:false" json:"-"`
@@ -182,21 +183,53 @@ func (c Cluster) BeforeDelete() error {
 	}
 
 	var projectResource ProjectResource
-	if err := tx.Where(ProjectResource{ResourceId: c.ID, ResourceType: constant.ResourceCluster}).Delete(&projectResource).Error; err != nil {
-		tx.Rollback()
-		return err
+	tx.Where(ProjectResource{ResourceId: c.ID, ResourceType: constant.ResourceCluster}).First(&projectResource)
+	if projectResource.ID != "" {
+		if err := tx.Delete(&projectResource).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
 	}
 
 	var clusterBackupStrategy ClusterBackupStrategy
-	if err := tx.Where(ClusterBackupStrategy{ClusterID: c.ID}).Delete(&clusterBackupStrategy).Error; err != nil {
-		tx.Rollback()
-		return err
+	tx.Where(ClusterBackupStrategy{ClusterID: c.ID}).First(&clusterBackupStrategy)
+	if clusterBackupStrategy.ID != "" {
+		if err := tx.Delete(&clusterBackupStrategy).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
 	}
 
 	var clusterBackupFiles []ClusterBackupFile
-	if err := tx.Where(ClusterBackupFile{ClusterID: c.ID}).Delete(&clusterBackupFiles).Error; err != nil {
-		tx.Rollback()
-		return err
+	tx.Where(ClusterBackupFile{ClusterID: c.ID}).Find(&clusterBackupFiles)
+	if len(clusterBackupFiles) > 0 {
+		for _, c := range clusterBackupFiles {
+			if err := tx.Delete(&c).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+	}
+
+	var messages []Message
+	var messageIds []string
+	tx.Where(Message{ClusterID: c.ID}).Find(&messages)
+	if len(messages) > 0 {
+		for _, m := range messages {
+			messageIds = append(messageIds, m.ID)
+			if err := tx.Delete(&m).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+	}
+
+	if len(messageIds) > 0 {
+		var userMessages []UserMessage
+		if err := tx.Where("message_id in (?)", messageIds).Delete(&userMessages).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
 	}
 
 	tx.Commit()
@@ -236,6 +269,16 @@ func (c Cluster) PrepareTools() []ClusterTool {
 			Architecture: supportedArchitectureAll,
 		},
 		{
+			Name:         "logging",
+			Version:      "v7.6.2",
+			Describe:     "",
+			Status:       constant.ClusterWaiting,
+			Logo:         "elasticsearch.png",
+			Frame:        false,
+			Url:          "/proxy/logging/{cluster_name}/root",
+			Architecture: supportedArchitectureAmd64,
+		},
+		{
 			Name:         "chartmuseum",
 			Version:      "v0.12.0",
 			Describe:     "",
@@ -269,7 +312,6 @@ func (c Cluster) GetKobeVars() map[string]string {
 	if c.Spec.FlannelBackend != "" {
 		result[facts.FlannelBackendFactName] = c.Spec.FlannelBackend
 	}
-
 	if c.Spec.CalicoIpv4poolIpip != "" {
 		result[facts.CalicoIpv4poolIpIpFactName] = c.Spec.CalicoIpv4poolIpip
 	}
@@ -297,7 +339,6 @@ func (c Cluster) GetKobeVars() map[string]string {
 	if c.Spec.KubeProxyMode != "" {
 		result[facts.KubeProxyModeFactName] = c.Spec.KubeProxyMode
 	}
-
 	if c.Spec.IngressControllerType != "" {
 		result[facts.IngressControllerTypeFactName] = c.Spec.IngressControllerType
 	}
@@ -307,11 +348,15 @@ func (c Cluster) GetKobeVars() map[string]string {
 	if c.Spec.KubernetesAudit != "" {
 		result[facts.KubernetesAuditFactName] = c.Spec.KubernetesAudit
 	}
-
 	if c.Spec.Architectures != "" {
 		result[facts.DockerSubnetFactName] = c.Spec.DockerSubnet
 	}
-
+	if c.Spec.HelmVersion != "" {
+		result[facts.HelmVersionFactName] = c.Spec.HelmVersion
+	}
+	if c.Spec.NetworkInterface != "" {
+		result[facts.NetworkInterfaceFactName] = c.Spec.NetworkInterface
+	}
 	return result
 }
 

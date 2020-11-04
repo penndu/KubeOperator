@@ -22,9 +22,13 @@ func (c *InitCronPhase) Init() error {
 		if err != nil {
 			return errors.New(fmt.Sprintf("can not add corn job: %s", err.Error()))
 		}
-		_, err = Cron.AddJob("0 0 1 * * ?", job.NewClusterBackup())
+		_, err = Cron.AddJob("@daily", job.NewClusterBackup())
 		if err != nil {
-			return errors.New(fmt.Sprintf("can not add corn job: %s", err.Error()))
+			return errors.New(fmt.Sprintf("can not add backup corn job: %s", err.Error()))
+		}
+		_, err = Cron.AddJob("@every 10m", job.NewClusterEvent())
+		if err != nil {
+			return errors.New(fmt.Sprintf("can not add cluster event corn job: %s", err.Error()))
 		}
 		Cron.Start()
 	}

@@ -9,7 +9,6 @@ import {Plan} from '../../deploy-plan/plan/plan';
 import {Project} from '../../project/project';
 import {ActivatedRoute} from '@angular/router';
 import {ManifestService} from "../../manifest/manifest.service";
-import {Manifest} from "../../manifest/manifest";
 
 
 @Component({
@@ -30,7 +29,9 @@ export class ClusterCreateComponent implements OnInit {
     plans: Plan[] = [];
     versions: string[] = [];
     currentProject: Project;
-
+    nameValid = true;
+    nameChecking = false;
+    helmVersions: string[] = [];
 
     @ViewChild('wizard', {static: true}) wizard: ClrWizard;
     @ViewChild('basicForm') basicForm: NgForm;
@@ -58,10 +59,12 @@ export class ClusterCreateComponent implements OnInit {
         this.masters = [];
         this.workers = [];
         this.versions = [];
+        this.nameValid = true;
+        this.nameChecking = false;
+        this.helmVersions = ['v3', 'v2'];
     }
 
     setDefaultValue() {
-        this.item.architectures = 'amd64';
         this.item.provider = 'bareMetal';
         this.item.networkType = 'flannel';
         this.item.runtimeType = 'docker';
@@ -79,7 +82,24 @@ export class ClusterCreateComponent implements OnInit {
         this.item.ingressControllerType = 'nginx';
         this.item.projectName = this.currentProject.name;
         this.item.workerAmount = 1;
+        this.item.architectures = 'amd64';
+        this.item.helmVersion = 'v3';
     }
+
+    onNameCheck() {
+        this.nameChecking = true;
+        setTimeout(() => {
+            this.service.get(this.item.name).subscribe(data => {
+                this.nameValid = false;
+                this.nameChecking = false;
+            }, error => {
+                this.nameChecking = false;
+                this.nameValid = true;
+            });
+        }, 1000);
+
+    }
+
 
     open() {
         this.reset();
@@ -134,7 +154,10 @@ export class ClusterCreateComponent implements OnInit {
     loadHosts() {
         this.hostService.listByProjectName(this.currentProject.name).subscribe(data => {
             const list = [];
-            data.items.forEach(h => {
+            data.items.filter((host) => {
+                return host.status === 'Running';
+
+            }).forEach(h => {
                 if (!h.clusterId) {
                     list.push({id: h.name, text: h.name, disabled: false});
                 }
@@ -150,17 +173,10 @@ export class ClusterCreateComponent implements OnInit {
     }
 
     loadVersion() {
-        this.manifestService.list().subscribe(data => {
+        this.manifestService.listActive().subscribe(data => {
+            this.item.version = data[0].version;
             for (const m of data) {
-                for (const c of m.category) {
-                    if (c.name === 'core') {
-                        for (const item of c.items) {
-                            if (item.name === 'kubernetes') {
-                                this.versions.push(item.version);
-                            }
-                        }
-                    }
-                }
+                this.versions.push(m.version);
             }
         });
     }
@@ -187,5 +203,14 @@ export class ClusterCreateComponent implements OnInit {
             this.opened = false;
             this.created.emit();
         });
+    }
+
+    changeArch(type) {
+        if (type === 'arm64') {
+            this.item.helmVersion = 'v3';
+            this.helmVersions = ['v3'];
+        } else {
+            this.helmVersions = ['v3', 'v2'];
+        }
     }
 }

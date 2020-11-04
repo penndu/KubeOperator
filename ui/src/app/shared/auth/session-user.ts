@@ -32,3 +32,8 @@ export class UserPermissionRole {
     operation: string;
     roles: string[];
 }
+
+export class Captcha {
+    captchaId: string;
+    image: string;
+}

@@ -8,13 +8,10 @@ import (
 	"github.com/KubeOperator/KubeOperator/pkg/dto"
 	"github.com/KubeOperator/KubeOperator/pkg/model"
 	"github.com/KubeOperator/KubeOperator/pkg/repository"
-	"github.com/KubeOperator/KubeOperator/pkg/service/cluster/adm"
-	"github.com/KubeOperator/KubeOperator/pkg/service/cluster/adm/phases/upgrade"
 	clusterUtil "github.com/KubeOperator/KubeOperator/pkg/util/cluster"
 	"github.com/KubeOperator/KubeOperator/pkg/util/kubeconfig"
 	"github.com/KubeOperator/KubeOperator/pkg/util/ssh"
 	"github.com/KubeOperator/KubeOperator/pkg/util/webkubectl"
-	"time"
 )
 
 type ClusterService interface {
@@ -32,7 +29,6 @@ type ClusterService interface {
 	List() ([]dto.Cluster, error)
 	Page(num, size int, projectName string) (dto.ClusterPage, error)
 	Batch(batch dto.ClusterBatch) error
-	Upgrade(upgrade dto.ClusterUpgrade) error
 }
 
 func NewClusterService() ClusterService {
@@ -50,6 +46,7 @@ func NewClusterService() ClusterService {
 		projectRepository:          repository.NewProjectRepository(),
 		projectResourceRepository:  repository.NewProjectResourceRepository(),
 		clusterLogService:          NewClusterLogService(),
+		messageService:             NewMessageService(),
 	}
 }
 
@@ -67,6 +64,7 @@ type clusterService struct {
 	projectRepository          repository.ProjectRepository
 	projectResourceRepository  repository.ProjectResourceRepository
 	clusterLogService          ClusterLogService
+	messageService             MessageService
 }
 
 func (c clusterService) Get(name string) (dto.Cluster, error) {
@@ -79,6 +77,7 @@ func (c clusterService) Get(name string) (dto.Cluster, error) {
 	clusterDTO.Cluster = mo
 	clusterDTO.NodeSize = len(mo.Nodes)
 	clusterDTO.Status = mo.Status.Phase
+	clusterDTO.PreStatus = mo.Status.PrePhase
 	clusterDTO.Architectures = mo.Spec.Architectures
 	return clusterDTO, nil
 }
@@ -91,10 +90,12 @@ func (c clusterService) List() ([]dto.Cluster, error) {
 	}
 	for _, mo := range mos {
 		clusterDTOS = append(clusterDTOS, dto.Cluster{
-			Cluster:  mo,
-			NodeSize: len(mo.Nodes),
-			Status:   mo.Status.Phase,
-			Provider: mo.Spec.Provider,
+			Cluster:       mo,
+			NodeSize:      len(mo.Nodes),
+			Status:        mo.Status.Phase,
+			Provider:      mo.Spec.Provider,
+			PreStatus:     mo.Status.PrePhase,
+			Architectures: mo.Spec.Architectures,
 		})
 	}
 	return clusterDTOS, err
@@ -108,10 +109,12 @@ func (c clusterService) Page(num, size int, projectName string) (dto.ClusterPage
 	}
 	for _, mo := range mos {
 		page.Items = append(page.Items, dto.Cluster{
-			Cluster:  mo,
-			NodeSize: len(mo.Nodes),
-			Status:   mo.Status.Phase,
-			Provider: mo.Spec.Provider,
+			Cluster:       mo,
+			NodeSize:      len(mo.Nodes),
+			Status:        mo.Status.Phase,
+			Provider:      mo.Spec.Provider,
+			PreStatus:     mo.Status.PrePhase,
+			Architectures: mo.Spec.Architectures,
 		})
 	}
 	page.Total = total
@@ -201,6 +204,8 @@ func (c clusterService) Create(creation dto.ClusterCreate) (dto.Cluster, error) 
 		KubernetesAudit:       creation.KubernetesAudit,
 		DockerSubnet:          creation.DockerSubnet,
 		KubeApiServerPort:     constant.DefaultApiServerPort,
+		HelmVersion:           creation.HelmVersion,
+		NetworkInterface:      creation.NetworkInterface,
 	}
 
 	status := model.ClusterStatus{Phase: constant.ClusterWaiting}
@@ -333,13 +338,22 @@ func (c clusterService) Delete(name string) error {
 				if len(hosts) > 0 {
 					go c.clusterTerminalService.Terminal(cluster.Cluster)
 				} else {
-					return c.clusterRepo.Delete(name)
+					_ = c.messageService.SendMessage(constant.System, true, GetContent(constant.ClusterUnInstall, true, ""), cluster.Name, constant.ClusterUnInstall)
+					err = c.clusterRepo.Delete(name)
+					if err != nil {
+						return err
+					}
 				}
 			} else {
-				return c.clusterRepo.Delete(name)
+				_ = c.messageService.SendMessage(constant.System, true, GetContent(constant.ClusterUnInstall, true, ""), cluster.Name, constant.ClusterUnInstall)
+				err = c.clusterRepo.Delete(name)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	case constant.ClusterSourceExternal:
+		_ = c.messageService.SendMessage(constant.System, true, GetContent(constant.ClusterUnInstall, true, ""), cluster.Name, constant.ClusterUnInstall)
 		err = c.clusterRepo.Delete(name)
 		if err != nil {
 			return err
@@ -380,55 +394,4 @@ func (c clusterService) GetKubeconfig(name string) (string, error) {
 		return "", err
 	}
 	return string(bf), nil
-}
-
-func (c clusterService) Upgrade(upgrade dto.ClusterUpgrade) error {
-	cluster, err := c.Get(upgrade.ClusterName)
-	if err != nil {
-		return err
-	}
-	if cluster.Status != constant.ClusterRunning {
-		return errors.New("CLUSTER_IS_NOT_RUNNING")
-	}
-	if cluster.Source != constant.ClusterSourceLocal {
-		return errors.New("CLUSTER_IS_NOT_LOCAL")
-	}
-	clusterStatus := model.ClusterStatus{Phase: constant.ClusterUpgrading, ID: cluster.Cluster.Status.ID}
-	err = c.clusterStatusRepo.Save(&clusterStatus)
-	if err != nil {
-		return err
-	}
-	go c.doUpgrade(cluster, upgrade.Version)
-	return nil
-}
-
-func (c clusterService) doUpgrade(cluster dto.Cluster, version string) {
-	var clog model.ClusterLog
-	clog.Type = constant.ClusterLogTypeUpgrade
-	clog.StartTime = time.Now()
-	clog.EndTime = time.Now()
-	err := c.clusterLogService.Save(cluster.Name, &clog)
-	if err != nil {
-		log.Error(err)
-	}
-	err = c.clusterLogService.Start(&clog)
-	if err != nil {
-		log.Error(err)
-	}
-	admCluster := adm.NewCluster(cluster.Cluster)
-	p := &upgrade.UpgradeClusterPhase{
-		Version: version,
-	}
-	err = p.Run(admCluster.Kobe)
-	if err != nil {
-		_ = c.clusterLogService.End(&clog, false, err.Error())
-		clusterStatus := model.ClusterStatus{Phase: constant.ClusterUpgrading, ID: cluster.Cluster.Status.ID, Message: err.Error()}
-		_ = c.clusterStatusRepo.Save(&clusterStatus)
-	} else {
-		_ = c.clusterLogService.End(&clog, true, "")
-		clusterStatus := model.ClusterStatus{Phase: constant.ClusterRunning, ID: cluster.Cluster.Status.ID}
-		_ = c.clusterStatusRepo.Save(&clusterStatus)
-		cluster.Cluster.Spec.Version = version
-		_ = c.clusterSpecRepo.Save(&cluster.Spec)
-	}
 }

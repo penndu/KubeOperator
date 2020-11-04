@@ -1,6 +1,6 @@
 import {Component, EventEmitter, OnDestroy, OnInit, Output} from '@angular/core';
 import {ClusterService} from '../cluster.service';
-import {BaseModelComponent} from '../../../shared/class/BaseModelComponent';
+import {BaseModelDirective} from '../../../shared/class/BaseModelDirective';
 import {Cluster} from '../cluster';
 import {CommonAlertService} from '../../../layout/common-alert/common-alert.service';
 import {AlertLevels} from '../../../layout/common-alert/alert';
@@ -8,26 +8,24 @@ import {ActivatedRoute, Router} from '@angular/router';
 import {Project} from '../../project/project';
 import {SystemService} from '../../setting/system.service';
 import {TranslateService} from '@ngx-translate/core';
-import {LicenseService} from '../../setting/license/license.service';
 
 @Component({
     selector: 'app-cluster-list',
     templateUrl: './cluster-list.component.html',
     styleUrls: ['./cluster-list.component.css']
 })
-export class ClusterListComponent extends BaseModelComponent<Cluster> implements OnInit, OnDestroy {
+export class ClusterListComponent extends BaseModelDirective<Cluster> implements OnInit, OnDestroy {
 
     constructor(private clusterService: ClusterService,
                 private commonAlert: CommonAlertService,
                 private router: Router,
                 private route: ActivatedRoute,
                 private settingService: SystemService,
-                private translateService: TranslateService,
-                private licenseService: LicenseService) {
+                private translateService: TranslateService) {
         super(clusterService);
     }
 
-    @Output() statusDetailEvent = new EventEmitter<string>();
+    @Output() statusDetailEvent = new EventEmitter<Cluster>();
     @Output() importEvent = new EventEmitter();
     @Output() upgradeEvent = new EventEmitter();
     timer;
@@ -68,8 +66,8 @@ export class ClusterListComponent extends BaseModelComponent<Cluster> implements
     }
 
 
-    onStatusDetail(name: string) {
-        this.statusDetailEvent.emit(name);
+    onStatusDetail(cluster: Cluster) {
+        this.statusDetailEvent.emit(cluster);
     }
 
     onCreate() {

@@ -67,6 +67,13 @@ import { SecurityTaskDetailComponent } from './cluster-detail/security/security-
 import { SecurityTaskDeleteComponent } from './cluster-detail/security/security-task-delete/security-task-delete.component';
 import { EventComponent } from './cluster-detail/event/event.component';
 import { ClusterUpgradeComponent } from './cluster-upgrade/cluster-upgrade.component';
+import { ClusterLoggerComponent } from './cluster-logger/cluster-logger.component';
+import { ClusterGradeComponent } from './cluster-detail/cluster-grade/cluster-grade.component';
+import {NgxEchartsModule} from 'ngx-echarts';
+import { NamespaceDeleteComponent } from './cluster-detail/namespace/namespace-delete/namespace-delete.component';
+import { NamespaceCreateComponent } from './cluster-detail/namespace/namespace-create/namespace-create.component';
+import { StorageProvisionerCreateOceanStorComponent } from './cluster-detail/storage/storage-provisioner/storage-provisioner-create/storage-provisioner-create-ocean-stor/storage-provisioner-create-ocean-stor.component';
+import { F5Component } from './cluster-detail/f5/f5.component';
 
 
 @NgModule({
@@ -114,13 +121,22 @@ import { ClusterUpgradeComponent } from './cluster-upgrade/cluster-upgrade.compo
         SecurityTaskDetailComponent,
         SecurityTaskDeleteComponent,
         EventComponent,
-        ClusterUpgradeComponent],
+        ClusterUpgradeComponent,
+        ClusterLoggerComponent,
+        ClusterGradeComponent,
+        NamespaceDeleteComponent,
+        NamespaceCreateComponent,
+        StorageProvisionerCreateOceanStorComponent,
+        F5Component],
     imports: [
         CoreModule,
         RouterModule,
         SharedModule,
         NgCircleProgressModule,
         BackupModule,
+        NgxEchartsModule.forRoot({
+            echarts: () => import('echarts'),
+        }),
     ]
 })
 export class ClusterModule {

@@ -7,6 +7,7 @@ import {NodeService} from "../node.service";
 import {Node} from "../node";
 import {CommonAlertService} from "../../../../../layout/common-alert/common-alert.service";
 import {AlertLevels} from "../../../../../layout/common-alert/alert";
+import {ClusterLoggerService} from "../../../cluster-logger/cluster-logger.service";
 
 @Component({
     selector: 'app-node-list',
@@ -19,6 +20,8 @@ export class NodeListComponent implements OnInit, OnDestroy {
     selected = [];
     items: Node[] = [];
     page = 1;
+    size = 10;
+    total = 0;
     timer;
     @Input() currentCluster: Cluster;
     @Output() openDetail = new EventEmitter<V1Node>();
@@ -27,7 +30,7 @@ export class NodeListComponent implements OnInit, OnDestroy {
     @Output() deleteEvent = new EventEmitter<Node[]>();
 
     constructor(private service: KubernetesService, private route: ActivatedRoute,
-                private nodeService: NodeService, private alertService: CommonAlertService) {
+                private nodeService: NodeService, private alertService: CommonAlertService, private loggerService: ClusterLoggerService) {
     }
 
     ngOnInit(): void {
@@ -41,14 +44,13 @@ export class NodeListComponent implements OnInit, OnDestroy {
     refresh() {
         this.loading = true;
         this.selected = [];
-        if (this.currentCluster.source === 'external') {
-        }
-        this.nodeService.list(this.currentCluster.name).subscribe(d => {
-            console.log(d);
-            this.items = d;
+        this.nodeService.list(this.currentCluster.name, this.page, this.size).subscribe(d => {
+            this.items = d.items;
+            this.total = d.total;
             this.loading = false;
         });
     }
+
 
     getInternalIp(item: Node) {
         let result = 'N/A';
@@ -157,10 +159,14 @@ export class NodeListComponent implements OnInit, OnDestroy {
         this.statusEvent.emit(item);
     }
 
+    onShowLogger(item: Node) {
+        this.loggerService.openLogger(this.currentCluster.name, item.name);
+    }
+
     polling() {
         this.timer = setInterval(() => {
-            this.nodeService.list(this.currentCluster.name).subscribe(data => {
-                this.items = data;
+            this.nodeService.list(this.currentCluster.name, this.page, this.size).subscribe(data => {
+                this.items = data.items;
             });
         }, 1000);
     }

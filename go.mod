@@ -4,8 +4,11 @@ go 1.14
 
 require (
 	github.com/Azure/azure-storage-blob-go v0.10.0
+	github.com/Azure/go-autorest/autorest v0.11.4 // indirect
+	github.com/Azure/go-autorest/autorest/adal v0.9.2 // indirect
 	github.com/CloudyKit/fastprinter v0.0.0-20200109182630-33d98a066a53 // indirect
-	github.com/KubeOperator/kobe v0.0.0-20200825101836-91d4296d44be
+	github.com/KubeOperator/FusionComputeGolangSDK v0.0.2
+	github.com/KubeOperator/kobe v0.0.0-20200927025215-e66b2838a503
 	github.com/KubeOperator/kotf v0.0.8
 	github.com/ajg/form v1.5.1 // indirect
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
@@ -17,8 +20,9 @@ require (
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575 // indirect
 	github.com/coreos/etcd v3.3.13+incompatible
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/docker/distribution v2.7.1+incompatible
+	github.com/fairwindsops/polaris v0.0.0-20201005190522-9cce9fcec757
 	github.com/fasthttp-contrib/websocket v0.0.0-20160511215533-1f3b11f56072 // indirect
-	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-ldap/ldap v3.0.3+incompatible
 	github.com/go-openapi/spec v0.19.7 // indirect
@@ -28,13 +32,13 @@ require (
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/gofrs/flock v0.7.1
 	github.com/golang-migrate/migrate/v4 v4.12.1
-	github.com/googleapis/gnostic v0.3.1 // indirect
-	github.com/gophercloud/gophercloud v0.1.0
+	github.com/gophercloud/gophercloud v0.12.0
+	github.com/hashicorp/errwrap v1.1.0 // indirect
+	github.com/hashicorp/go-immutable-radix v1.3.0 // indirect
 	github.com/imkira/go-interpol v1.1.0 // indirect
 	github.com/iris-contrib/middleware/jwt v0.0.0-20191219204441-78279b78a367
 	github.com/iris-contrib/swagger/v12 v12.0.1
 	github.com/jinzhu/gorm v1.9.12
-	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/k0kubun/colorstring v0.0.0-20150214042306-9440f1994b88 // indirect
 	github.com/kataras/golog v0.0.18 // indirect
 	github.com/kataras/iris/v12 v12.1.8
@@ -43,6 +47,7 @@ require (
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.3 // indirect
 	github.com/mitchellh/mapstructure v1.1.2
+	github.com/mojocn/base64Captcha v1.3.1
 	github.com/moul/http2curl v1.0.0 // indirect
 	github.com/mozillazg/go-pinyin v0.18.0
 	github.com/nats-io/nats-server/v2 v2.1.7 // indirect
@@ -50,8 +55,9 @@ require (
 	github.com/pkg/sftp v1.11.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/satori/go.uuid v1.2.0
-	github.com/sirupsen/logrus v1.5.0
+	github.com/sirupsen/logrus v1.7.0
 	github.com/spf13/viper v1.7.0
+	github.com/storyicon/grbac v0.0.0-20200224041032-a0461737df7e
 	github.com/swaggo/swag v1.6.5
 	github.com/valyala/fasthttp v1.14.0 // indirect
 	github.com/vmware/govmomi v0.23.0
@@ -60,15 +66,19 @@ require (
 	github.com/yudai/gojsondiff v1.0.0 // indirect
 	github.com/yudai/golcs v0.0.0-20170316035057-ecda9a501e82 // indirect
 	github.com/yudai/pp v2.0.1+incompatible // indirect
-	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899
+	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
+	golang.org/x/sys v0.0.0-20201029080932-201ba4db2418 // indirect
 	golang.org/x/text v0.3.3
+	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
-	gopkg.in/yaml.v2 v2.3.0 // indirect
+	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 	helm.sh/helm/v3 v3.2.3
-	k8s.io/api v0.18.2
-	k8s.io/apiextensions-apiserver v0.18.2 // indirect
-	k8s.io/apimachinery v0.18.2
+	k8s.io/api v0.18.8
+	k8s.io/apimachinery v0.18.8
 	k8s.io/cli-runtime v0.18.0
-	k8s.io/client-go v0.18.2
+	k8s.io/client-go v0.18.6
+	k8s.io/kubernetes v1.13.0
 	rsc.io/letsencrypt v0.0.3 // indirect
 )
+
+replace github.com/russross/blackfriday => github.com/russross/blackfriday v1.5.2

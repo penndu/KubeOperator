@@ -5,6 +5,7 @@ export class Cluster extends BaseModel {
     spec: Spec;
     nodeSize: string;
     status: string;
+    preStatus: string;
     provider: string;
     projectName: string;
     source: string;
@@ -12,6 +13,7 @@ export class Cluster extends BaseModel {
 
 export class Spec {
     version: string;
+    upgradeVersion: string;
     networkType: string;
     architectures: string;
     runtimeType: string;
@@ -58,6 +60,8 @@ export class ClusterCreateRequest extends BaseModel {
     workerAmount: number;
     dockerSubnet: string;
     projectName: string;
+    helmVersion: string;
+    networkInterface: string;
 }
 
 export class CLusterImportRequest {

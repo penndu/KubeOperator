@@ -1,13 +1,16 @@
-<clr-datagrid [clrDgLoading]="loading" [clrDgSelected]="selected">
+<clr-datagrid [clrDgLoading]="loading" [(clrDgSelected)]="selected">
     <clr-dg-action-bar *ngIf="currentCluster.source !== 'external'">
-        <button type="button" class="btn btn-sm btn-secondary" (click)="onCreate()">
-            <clr-icon shape="plus" size="16"></clr-icon>
-            {{"APP_ADD"|translate}}
-        </button>
-        <button type="button" class="btn btn-sm btn-secondary" (click)="onDelete()" [disabled]="selected.length<1">
-            <clr-icon shape="close"></clr-icon>
-            {{"APP_DELETE"|translate}}
-        </button>
+
+        <div class="btn-group">
+            <button type="button" class="btn btn-sm btn-secondary" (click)="onCreate()">
+                <clr-icon shape="plus" size="16"></clr-icon>
+                {{"APP_ADD"|translate}}
+            </button>
+            <button type="button" class="btn btn-sm btn-secondary" (click)="onDelete()" [disabled]="selected.length<1">
+                <clr-icon shape="close"></clr-icon>
+                {{"APP_DELETE"|translate}}
+            </button>
+        </div>
     </clr-dg-action-bar>
     <clr-dg-column>{{"APP_NAME"|translate}}</clr-dg-column>
     <clr-dg-column>{{"APP_IP"|translate}}</clr-dg-column>
@@ -25,7 +28,13 @@
         <clr-dg-cell>{{getNodeRoles(item)}}</clr-dg-cell>
         <clr-dg-cell>{{getCpuCore(item)}}</clr-dg-cell>
         <clr-dg-cell>{{getRAM(item)}}</clr-dg-cell>
-        <clr-dg-cell *ngIf="getStatus(item) !== 'Failed'">{{getStatus(item) |translate}}
+
+        <clr-dg-cell *ngIf="getStatus(item) !== 'Failed'">
+            <span *ngIf="item.status === 'Initializing'"> <a href="javascript:void(0)"
+                                                             (click)="onShowLogger(item)"> {{getStatus(item) | translate}}</a></span>
+            <span *ngIf="item.status !== 'Initializing'"> {{getStatus(item) | translate}}</span>
+
+
             <clr-spinner clrAssertive clrInline *ngIf="item.status === 'Initializing' || item.status === 'Terminating'">
                 Loading...
             </clr-spinner>
@@ -37,5 +46,12 @@
         </clr-dg-cell>
         <clr-dg-cell>{{item.createdAt|date:'yyyy-MM-dd HH:mm:ss'}}</clr-dg-cell>
     </clr-dg-row>
+    <clr-dg-footer>
+        <clr-dg-pagination #pagination [(clrDgPage)]="page" [clrDgPageSize]="size" [clrDgTotalItems]="total"
+                           (clrDgPageChange)="refresh()">
+            {{pagination.firstItem + 1}} - {{pagination.lastItem + 1}}
+            {{"APP_PAGER_TOTAL"|translate}} {{pagination.totalItems}} {{"APP_NODE"|translate}}
+        </clr-dg-pagination>
+    </clr-dg-footer>
 </clr-datagrid>
 

@@ -6,8 +6,10 @@ import (
 	"github.com/KubeOperator/KubeOperator/pkg/model"
 	"github.com/KubeOperator/KubeOperator/pkg/repository"
 	"github.com/KubeOperator/KubeOperator/pkg/service/cluster/adm"
+	"github.com/KubeOperator/KubeOperator/pkg/util/ansible"
 	clusterUtil "github.com/KubeOperator/KubeOperator/pkg/util/cluster"
 	"github.com/KubeOperator/KubeOperator/pkg/util/ssh"
+	"io"
 	"time"
 )
 
@@ -25,6 +27,7 @@ func NewClusterInitService() ClusterInitService {
 		clusterStatusConditionRepo: repository.NewClusterStatusConditionRepository(),
 		clusterSpecRepo:            repository.NewClusterSpecRepository(),
 		clusterIaasService:         NewClusterIaasService(),
+		messageService:             NewMessageService(),
 	}
 }
 
@@ -36,6 +39,7 @@ type clusterInitService struct {
 	clusterStatusConditionRepo repository.ClusterStatusConditionRepository
 	clusterSpecRepo            repository.ClusterSpecRepository
 	clusterIaasService         ClusterIaasService
+	messageService             MessageService
 }
 
 func (c clusterInitService) Init(name string) error {
@@ -59,11 +63,17 @@ func (c clusterInitService) Init(name string) error {
 			}
 		}
 	}
-	go c.do(cluster)
+	logId, writer, err := ansible.CreateAnsibleLogWriter(cluster.Name)
+	if err != nil {
+		return err
+	}
+	cluster.LogId = logId
+	_ = c.clusterRepo.Save(&cluster)
+	go c.do(cluster, writer)
 	return nil
 }
 
-func (c clusterInitService) do(cluster model.Cluster) {
+func (c clusterInitService) do(cluster model.Cluster, writer io.Writer) {
 	if len(cluster.Nodes) < 1 {
 		cluster.Status.Phase = constant.ClusterCreating
 		_ = c.clusterStatusRepo.Save(&cluster.Status)
@@ -80,7 +90,8 @@ func (c clusterInitService) do(cluster model.Cluster) {
 	statusChan := make(chan adm.Cluster, 0)
 	cluster.Status.Phase = constant.ClusterInitializing
 	_ = c.clusterStatusRepo.Save(&cluster.Status)
-	admCluster := adm.NewCluster(cluster)
+
+	admCluster := adm.NewCluster(cluster, writer)
 	go c.doCreate(ctx, *admCluster, statusChan)
 	for {
 		cluster := <-statusChan
@@ -88,8 +99,10 @@ func (c clusterInitService) do(cluster model.Cluster) {
 		switch cluster.Status.Phase {
 		case constant.ClusterFailed:
 			cancel()
+			_ = c.messageService.SendMessage(constant.System, false, GetContent(constant.ClusterInstall, false, ""), cluster.Name, constant.ClusterInstall)
 			return
 		case constant.ClusterRunning:
+			_ = c.messageService.SendMessage(constant.System, true, GetContent(constant.ClusterInstall, true, ""), cluster.Name, constant.ClusterInstall)
 			for i, _ := range cluster.Nodes {
 				cluster.Spec.KubeRouter = cluster.Nodes[0].Host.Ip
 				_ = c.clusterSpecRepo.Save(&cluster.Spec)

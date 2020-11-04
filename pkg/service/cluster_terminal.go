@@ -20,6 +20,7 @@ func NewCLusterTerminalService() ClusterTerminalService {
 		clusterRepo:       repository.NewClusterRepository(),
 		clusterStatusRepo: repository.NewClusterStatusRepository(),
 		planRepo:          repository.NewPlanRepository(),
+		messageService:    NewMessageService(),
 	}
 }
 
@@ -27,6 +28,7 @@ type clusterTerminalService struct {
 	clusterRepo       repository.ClusterRepository
 	clusterStatusRepo repository.ClusterStatusRepository
 	planRepo          repository.PlanRepository
+	messageService    MessageService
 }
 
 func (c clusterTerminalService) Terminal(cluster model.Cluster) {
@@ -48,8 +50,12 @@ func (c clusterTerminalService) Terminal(cluster model.Cluster) {
 		return
 	}
 	waitGroup.Wait()
+	_ = c.messageService.SendMessage(constant.System, true, GetContent(constant.ClusterUnInstall, true, ""), cluster.Name, constant.ClusterUnInstall)
 	err := c.clusterRepo.Delete(cluster.Name)
 	if err != nil {
+		log.Error(err)
+		_ = c.messageService.SendMessage(constant.System, false, GetContent(constant.ClusterUnInstall, false, err.Error()), cluster.Name, constant.ClusterUnInstall)
+	} else {
 		log.Error(err)
 	}
 }
@@ -62,6 +68,8 @@ func doPlanTerminal(wg *sync.WaitGroup, cluster *model.Cluster) {
 	_, err := k.Destroy()
 	if err != nil {
 		log.Error(err)
+		messageService := NewMessageService()
+		_ = messageService.SendMessage(constant.System, false, GetContent(constant.ClusterUnInstall, false, err.Error()), cluster.Name, constant.ClusterUnInstall)
 	}
 }
 
@@ -78,8 +86,10 @@ func doBareMetalTerminal(wg *sync.WaitGroup, cluster *model.Cluster) {
 	for key, value := range vars {
 		k.SetVar(key, value)
 	}
-	err := phases.RunPlaybookAndGetResult(k, terminalPlaybookName)
+	err := phases.RunPlaybookAndGetResult(k, terminalPlaybookName, nil)
 	if err != nil {
 		log.Error(err)
+		messageService := NewMessageService()
+		_ = messageService.SendMessage(constant.System, false, GetContent(constant.ClusterUnInstall, false, err.Error()), cluster.Name, constant.ClusterUnInstall)
 	}
 }

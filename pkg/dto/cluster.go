@@ -6,6 +6,7 @@ type Cluster struct {
 	model.Cluster
 	NodeSize      int    `json:"nodeSize"`
 	Status        string `json:"status"`
+	PreStatus     string `json:"preStatus"`
 	Provider      string `json:"provider"`
 	Architectures string `json:"architectures"`
 }
@@ -58,6 +59,8 @@ type ClusterCreate struct {
 	DockerSubnet          string       `json:"dockerSubnet"`
 	Nodes                 []NodeCreate `json:"nodes"`
 	ProjectName           string       `json:"projectName"`
+	HelmVersion           string       `json:"helmVersion"`
+	NetworkInterface      string       `json:"networkInterface"`
 }
 
 type ClusterBatch struct {

@@ -1,10 +1,13 @@
 package adm
 
 import (
+	"encoding/json"
+	"github.com/KubeOperator/KubeOperator/pkg/dto"
 	"github.com/KubeOperator/KubeOperator/pkg/model"
 	"github.com/KubeOperator/KubeOperator/pkg/repository"
 	"github.com/KubeOperator/KubeOperator/pkg/service/cluster/adm/facts"
 	"github.com/KubeOperator/KubeOperator/pkg/util/kobe"
+	"io"
 	"reflect"
 	"runtime"
 	"strings"
@@ -56,12 +59,16 @@ func (c *Cluster) setCondition(newCondition model.ClusterStatusCondition) {
 
 type Cluster struct {
 	model.Cluster
-	Kobe kobe.Interface
+	writer io.Writer
+	Kobe   kobe.Interface
 }
 
-func NewCluster(cluster model.Cluster) *Cluster {
+func NewCluster(cluster model.Cluster, writer ...io.Writer) *Cluster {
 	c := &Cluster{
 		Cluster: cluster,
+	}
+	if writer != nil {
+		c.writer = writer[0]
 	}
 	c.Kobe = kobe.NewAnsible(&kobe.Config{
 		Inventory: c.ParseInventory(),
@@ -77,6 +84,13 @@ func NewCluster(cluster model.Cluster) *Cluster {
 	repo := repository.NewSystemSettingRepository()
 	val, _ := repo.Get("ip")
 	c.Kobe.SetVar(facts.LocalHostnameFactName, val.Value)
+	maniFest, _ := GetVarsBy(cluster.Spec.Version)
+	if maniFest.Name != "" {
+		vars := maniFest.GetVars()
+		for k, v := range vars {
+			c.Kobe.SetVar(k, v)
+		}
+	}
 	return c
 }
 
@@ -98,7 +112,6 @@ func NewClusterAdm() *ClusterAdm {
 		ca.EnsureInitWorker,
 		ca.EnsureInitNetwork,
 		ca.EnsureInitHelm,
-		ca.EnsureInitNpd,
 		ca.EnsureInitMetricsServer,
 		ca.EnsureInitIngressController,
 		ca.EnsurePostInit,
@@ -109,4 +122,26 @@ func NewClusterAdm() *ClusterAdm {
 func (ca *ClusterAdm) OnInitialize(c Cluster) (Cluster, error) {
 	err := ca.Create(&c)
 	return c, err
+}
+
+func GetVarsBy(version string) (dto.ClusterManifest, error) {
+	var clusterManifest dto.ClusterManifest
+	repo := repository.NewClusterManifestRepository()
+	mo, err := repo.Get(version)
+	if err != nil {
+		return clusterManifest, err
+	}
+	clusterManifest.Name = mo.Name
+	clusterManifest.Version = mo.Version
+	clusterManifest.IsActive = mo.IsActive
+	var core []dto.NameVersion
+	json.Unmarshal([]byte(mo.CoreVars), &core)
+	clusterManifest.CoreVars = core
+	var network []dto.NameVersion
+	json.Unmarshal([]byte(mo.NetworkVars), &network)
+	clusterManifest.NetworkVars = network
+	var other []dto.NameVersion
+	json.Unmarshal([]byte(mo.OtherVars), &other)
+	clusterManifest.OtherVars = other
+	return clusterManifest, err
 }

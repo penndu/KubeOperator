@@ -1,4 +1,4 @@
-<clr-datagrid [clrDgLoading]="loading" [clrDgSelected]="selected">
+<clr-datagrid [clrDgLoading]="loading" [(clrDgSelected)]="selected" >
     <clr-dg-action-bar>
         <div class="btn-group">
             <button type="button" class="btn btn-sm btn-secondary" (click)="onCreate()">
@@ -47,10 +47,10 @@
         </clr-dg-cell>
         <clr-dg-cell>
 
-            <span *ngIf="item.status === 'Initializing' || item.status === 'Failed'">
-               <a (click)="onStatusDetail(item.name)" href="javascript:void(0)">{{item.status}}</a>
+            <span *ngIf="item.status === 'Initializing' || item.status === 'Upgrading'||item.status === 'Failed'">
+               <a (click)="onStatusDetail(item)" href="javascript:void(0)">{{item.status}}</a>
             </span>
-            <span *ngIf="item.status!=='Initializing' && item.status!=='Failed'">
+            <span *ngIf="item.status!=='Initializing' && item.status!=='Failed'&& item.status !== 'Upgrading'">
                {{item.status}}
             </span>
             <clr-spinner clrAssertive clrInline

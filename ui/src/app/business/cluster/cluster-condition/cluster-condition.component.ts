@@ -1,6 +1,7 @@
 import {Component, EventEmitter, Input, OnInit, Output} from '@angular/core';
 import {ClusterService} from '../cluster.service';
-import {ClusterStatus, Condition} from '../cluster';
+import {Cluster, ClusterStatus, Condition} from '../cluster';
+import {ClusterLoggerService} from '../cluster-logger/cluster-logger.service';
 
 @Component({
     selector: 'app-cluster-condition',
@@ -10,13 +11,13 @@ import {ClusterStatus, Condition} from '../cluster';
 export class ClusterConditionComponent implements OnInit {
 
     opened = false;
-    clusterName: string;
+    cluster: Cluster;
     item: ClusterStatus = new ClusterStatus();
     loading = false;
     timer;
     @Output() retry = new EventEmitter();
 
-    constructor(private service: ClusterService) {
+    constructor(private service: ClusterService, private loggerService: ClusterLoggerService) {
     }
 
     ngOnInit(): void {
@@ -27,15 +28,15 @@ export class ClusterConditionComponent implements OnInit {
         this.opened = false;
     }
 
-    open(clusterName: string) {
-        this.clusterName = clusterName;
+    open(cluster: Cluster) {
+        this.cluster = cluster;
         this.getStatus();
         this.polling();
     }
 
     getStatus() {
         this.opened = true;
-        this.service.status(this.clusterName).subscribe(data => {
+        this.service.status(this.cluster.name).subscribe(data => {
             this.item = data;
             this.loading = false;
         });
@@ -52,16 +53,29 @@ export class ClusterConditionComponent implements OnInit {
         return null;
     }
 
-    onInit() {
-        this.service.init(this.clusterName).subscribe(data => {
-            this.retry.emit();
-            this.polling();
-        });
+    onRetry() {
+        switch (this.cluster.preStatus) {
+            case 'Upgrading':
+                this.service.upgrade(this.cluster.name, this.cluster.spec.upgradeVersion).subscribe(data => {
+                    this.retry.emit();
+                    this.polling();
+                });
+                break;
+            default:
+                this.service.init(this.cluster.name).subscribe(data => {
+                    this.retry.emit();
+                    this.polling();
+                });
+        }
+    }
+
+    onOpenLogger() {
+        this.loggerService.openLogger(this.cluster.name);
     }
 
     polling() {
         this.timer = setInterval(() => {
-            this.service.status(this.clusterName).subscribe(data => {
+            this.service.status(this.cluster.name).subscribe(data => {
                 if (this.item.phase !== 'Running') {
                     this.item.conditions = data.conditions;
                 } else {

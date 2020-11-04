@@ -9,6 +9,7 @@ type ClusterSpec struct {
 	common.BaseModel
 	ID                    string `json:"_"`
 	Version               string `json:"version"`
+	UpgradeVersion        string `json:"upgradeVersion"`
 	Provider              string `json:"provider"`
 	NetworkType           string `json:"networkType"`
 	FlannelBackend        string `json:"flannelBackend"`
@@ -28,6 +29,8 @@ type ClusterSpec struct {
 	IngressControllerType string `json:"ingressControllerType"`
 	Architectures         string `json:"architectures"`
 	KubernetesAudit       string `json:"kubernetesAudit"`
+	HelmVersion           string `json:"helmVersion"`
+	NetworkInterface      string `json:"networkInterface"`
 }
 
 func (s *ClusterSpec) BeforeCreate() (err error) {

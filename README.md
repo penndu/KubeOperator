@@ -43,8 +43,6 @@ curl -sSL https://github.com/KubeOperator/KubeOperator/releases/latest/download/
 
 - [申请企业版试用](https://jinshuju.net/f/qc6g44/)
 
->注：企业版支持离线安装，申请通过后会提供高速下载链接。
-
 ## 版本说明
 
 KubeOperator 版本号命名规则为：v大版本.功能版本.Bug修复版本。比如：
@@ -122,7 +120,7 @@ v1.1.0 是 v1.0.0 之后的功能版本。
         </td>
     </tr>
     <tr class="subscription-level-tr-border">
-        <td class="features-third-td-background-style">支持通过 F5 Big IP 对外暴露服务
+        <td class="features-third-td-background-style">支持通过 F5 Big IP 对外暴露服务（X-PACK）
         </td>
     </tr> 
     <tr class="subscription-level-tr-border">
@@ -136,7 +134,7 @@ v1.1.0 是 v1.0.0 之后的功能版本。
     <tr class="subscription-level-tr-border">
         <td class="features-third-td-background-style">GPU 方案
         </td>
-        <td class="features-third-td-background-style">支持 NVIDIA GPU
+        <td class="features-third-td-background-style">支持 NVIDIA GPU（X-PACK）
         </td>
     </tr> 
     <tr class="subscription-level-tr-border">
@@ -180,7 +178,7 @@ v1.1.0 是 v1.0.0 之后的功能版本。
         </td>
     </tr> 
     <tr class="subscription-level-tr-border">
-         <td class="features-third-td-background-style">支持对接 LDAP/AD
+         <td class="features-third-td-background-style">支持对接 LDAP/AD（X-PACK）
         </td>
     </tr>    
     <tr class="subscription-level-tr-border">
@@ -222,7 +220,7 @@ v1.1.0 是 v1.0.0 之后的功能版本。
         </td>
     </tr> 
     <tr class="subscription-level-tr-border">
-        <td class="features-third-td-background-style">支持消息中心，通过钉钉、微信通知各种集群异常事件；
+        <td class="features-third-td-background-style">支持消息中心，通过钉钉、微信通知各种集群异常事件（X-PACK）
         </td>
     </tr>      
     <tr class="subscription-level-tr-border">
@@ -246,7 +244,7 @@ v1.1.0 是 v1.0.0 之后的功能版本。
     <tr class="subscription-level-tr-border">
         <td class="features-third-td-background-style"  rowspan="2">安全合规
         </td>
-         <td class="features-third-td-background-style">支持集群健康评分
+         <td class="features-third-td-background-style">支持集群健康评分（X-PACK）
         </td>
     </tr>   
     <tr class="subscription-level-tr-border">
@@ -287,6 +285,13 @@ v1.1.0 是 v1.0.0 之后的功能版本。
   - [nfs-provisioner](https://github.com/kubernetes-incubator/external-storage) v3.1.0-k8s1.11
   - [rook-ceph](https://github.com/rook/rook) v1.3.6
   - [rbd-provisioner](https://github.com/kubernetes-incubator/external-storage) v2.1.1-k8s1.11
+- [应用商店 Kubeapps](https://github.com/KubeOperator/charts/tree/master/kubeapps)
+  - Harbor v1.10.2
+  - Jenkins v2.222.1
+  - GitLab v9.4.1
+  - Argo CD v1.6.1
+  - Sonarqube v7.9.2
+  - Weave Scope v1.12.0
 
 ## 微信群
 

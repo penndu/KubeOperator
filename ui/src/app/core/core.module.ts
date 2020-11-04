@@ -1,11 +1,10 @@
 import {NgModule} from '@angular/core';
 import {CommonModule} from '@angular/common';
-import {AppRoutingModule} from '../app-routing.module';
 import {ClarityModule} from '@clr/angular';
 import {FormsModule} from '@angular/forms';
 import {TranslateModule} from '@ngx-translate/core';
 import {LSelect2Module} from 'ngx-select2';
-import {NgxUploaderModule} from "ngx-uploader";
+import {NgxEchartsModule} from 'ngx-echarts';
 
 
 @NgModule({
@@ -16,7 +15,7 @@ import {NgxUploaderModule} from "ngx-uploader";
         ClarityModule,
         TranslateModule,
         LSelect2Module,
-        NgxUploaderModule,
+        NgxEchartsModule,
     ],
     exports: [
         CommonModule,
@@ -24,7 +23,6 @@ import {NgxUploaderModule} from "ngx-uploader";
         ClarityModule,
         TranslateModule,
         LSelect2Module,
-        NgxUploaderModule,
     ]
 })
 export class CoreModule {

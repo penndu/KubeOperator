@@ -1,5 +1,5 @@
 import {Component, EventEmitter, OnInit, Output, ViewChild} from '@angular/core';
-import {BaseModelComponent} from '../../../../shared/class/BaseModelComponent';
+import {BaseModelDirective} from '../../../../shared/class/BaseModelDirective';
 import {ProjectMember, ProjectMemberCreate} from '../project-member';
 import {ProjectMemberService} from '../project-member.service';
 import {NgForm} from '@angular/forms';
@@ -15,12 +15,11 @@ import {AlertLevels} from '../../../../layout/common-alert/alert';
     templateUrl: './project-member-create.component.html',
     styleUrls: ['./project-member-create.component.css']
 })
-export class ProjectMemberCreateComponent extends BaseModelComponent<ProjectMember> implements OnInit {
+export class ProjectMemberCreateComponent extends BaseModelDirective<ProjectMember> implements OnInit {
 
     opened = false;
     item: ProjectMemberCreate = new ProjectMemberCreate();
     selectUsers: string[] = [];
-    roles: string[] = [];
     currentProject: Project = new Project();
     @Output() created = new EventEmitter();
     @ViewChild('memberForm') memberForm: NgForm;
@@ -43,7 +42,6 @@ export class ProjectMemberCreateComponent extends BaseModelComponent<ProjectMemb
     open() {
         this.opened = true;
         this.item = new ProjectMemberCreate();
-        this.getRoles();
     }
 
     onCancel() {
@@ -74,11 +72,5 @@ export class ProjectMemberCreateComponent extends BaseModelComponent<ProjectMemb
     selectedName(name) {
         this.item.userName = name;
         this.selectUsers = [];
-    }
-
-    getRoles() {
-        this.projectMemberService.getRoles().subscribe(res => {
-            this.roles = res;
-        });
     }
 }

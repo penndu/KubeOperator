@@ -4,6 +4,7 @@ import {HttpClient} from '@angular/common/http';
 import {ProjectMember, ProjectMemberResponse} from './project-member';
 import {Observable} from 'rxjs';
 import {Page} from '../../../shared/class/Page';
+import {BaseRequest} from "../../../shared/class/BaseModel";
 
 @Injectable({
     providedIn: 'root'
@@ -17,20 +18,20 @@ export class ProjectMemberService extends BaseModelService<any> {
     }
 
     pageBy(page, size, projectName): Observable<Page<ProjectMember>> {
-        const pageUrl = `${this.baseUrl}/?pageNum=${page}&pageSize=${size}`;
-        return this.http.get<Page<ProjectMember>>(pageUrl, {
-            headers: {project: projectName},
-        });
+        const pageUrl = `${this.baseUrl}/?pageNum=${page}&pageSize=${size}&project=${projectName}`;
+        return this.http.get<Page<ProjectMember>>(pageUrl);
     }
 
     getByUser(username: string, projectName: string): Observable<ProjectMember> {
         return this.http.get<ProjectMember>(`${this.baseUrl}/${username}`, {
-            headers: {project: projectName},
+            headers: {project: encodeURI(projectName)},
         });
     }
 
-    getUsers(name): Observable<ProjectMemberResponse> {
+    getUsers(name, projectName): Observable<ProjectMemberResponse> {
         const userUrl = `${this.baseUrl}/users/?name=${name}`;
-        return this.http.get<ProjectMemberResponse>(userUrl);
+        return this.http.get<ProjectMemberResponse>(userUrl, {
+            headers: {project: encodeURI(projectName)},
+        });
     }
 }

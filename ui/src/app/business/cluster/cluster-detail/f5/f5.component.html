@@ -1,5 +1,8 @@
-<div>
-    <form clrForm #F5config="ngForm">
+<div *ngIf="!loading" style="text-align: center">
+    <clr-spinner></clr-spinner>
+</div>
+<div *ngIf="loading">
+    <form clrForm #F5config="ngForm" >
             <clr-input-container>
                 <label>{{'APP_F5_URL'|translate}}</label>
                 <input clrInput placeholder="https://172.16.10.100" name="url" size="25" [(ngModel)]="item.url" required/>
@@ -8,11 +11,11 @@
                 <label>{{'APP_F5_USER'|translate}}</label>
                 <input clrInput placeholder="admin" name="user" size="25"  [(ngModel)]="item.user" required/>
             </clr-input-container>
-            <clr-password-container>
+            <clr-input-container>
                 <label>{{'APP_F5_PASSWORD'|translate}}</label>
-                <input clrPassword placeholder="Password" name="password" size="25"  [(ngModel)]="item.password" required/>
+                <input clrInput  type="password" placeholder="Password" name="password" size="25"  [(ngModel)]="item.password" required/>
                 <clr-control-error>{{'APP_F5_PASSWORD_ERROR_MSG'|translate}}</clr-control-error>
-            </clr-password-container>
+            </clr-input-container>
             <clr-input-container>
                 <label>{{'APP_F5_PARTITION'|translate}}</label>
                 <input clrInput placeholder="Partition Name" name="partition" size="25"  [(ngModel)]="item.partition" required/>

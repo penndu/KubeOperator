@@ -3,7 +3,7 @@ package service
 import (
 	"encoding/json"
 	"errors"
-	"github.com/KubeOperator/KubeOperator/pkg/cloud_provider/client"
+	"github.com/KubeOperator/KubeOperator/pkg/cloud_provider"
 	"github.com/KubeOperator/KubeOperator/pkg/constant"
 	"github.com/KubeOperator/KubeOperator/pkg/controller/page"
 	"github.com/KubeOperator/KubeOperator/pkg/dto"
@@ -76,10 +76,11 @@ func (p planService) Page(num, size int) (page.Page, error) {
 		return page, err
 	}
 	for _, mo := range mos {
-
 		planDTO := new(dto.Plan)
 		r := make(map[string]interface{})
-		json.Unmarshal([]byte(mo.Vars), &r)
+		if err := json.Unmarshal([]byte(mo.Vars), &r); err != nil {
+			return page, err
+		}
 		planDTO.PlanVars = r
 		planDTO.Plan = mo
 		planDTO.RegionName = mo.Region.Name
@@ -134,7 +135,7 @@ func (p planService) Create(creation dto.PlanCreate) (*dto.Plan, error) {
 		}
 		err = p.projectResourceRepo.Create(model.ProjectResource{
 			ResourceType: constant.ResourcePlan,
-			ResourceId:   plan.ID,
+			ResourceID:   plan.ID,
 			ProjectID:    project.ID,
 		})
 		if err != nil {
@@ -170,7 +171,7 @@ func (p planService) GetConfigs(regionName string) ([]dto.PlanVmConfig, error) {
 	if region.Provider == constant.OpenStack {
 		vars := region.RegionVars.(map[string]interface{})
 		vars["datacenter"] = region.Datacenter
-		cloudClient := client.NewCloudClient(vars)
+		cloudClient := cloud_provider.NewCloudClient(vars)
 		result, err := cloudClient.ListFlavors()
 		if err != nil {
 			return nil, err

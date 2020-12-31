@@ -1,4 +1,4 @@
-import {Component, EventEmitter, OnInit, Output} from '@angular/core';
+import {Component, EventEmitter, OnDestroy, OnInit, Output} from '@angular/core';
 import {HostService} from '../host.service';
 import {BaseModelDirective} from '../../../shared/class/BaseModelDirective';
 import {Host} from '../host';
@@ -8,10 +8,12 @@ import {Host} from '../host';
     templateUrl: './host-list.component.html',
     styleUrls: ['./host-list.component.css']
 })
-export class HostListComponent extends BaseModelDirective<Host> implements OnInit {
+export class HostListComponent extends BaseModelDirective<Host> implements OnInit, OnDestroy {
 
     @Output() detailEvent = new EventEmitter<Host>();
     @Output() statusDetailEvent = new EventEmitter<Host>();
+    @Output() importEvent = new EventEmitter<Host>();
+    @Output() grantEvent = new EventEmitter<Host[]>();
     timer;
 
     constructor(private hostService: HostService) {
@@ -59,6 +61,7 @@ export class HostListComponent extends BaseModelDirective<Host> implements OnIni
                                     item.status = n.status;
                                     item.volumes = n.volumes;
                                     item.clusterName = n.clusterName;
+                                    item.hasGpu = n.hasGpu;
                                 }
                             }
                         });
@@ -68,5 +71,15 @@ export class HostListComponent extends BaseModelDirective<Host> implements OnIni
         }, 5000);
     }
 
+    ngOnDestroy() {
+        clearInterval(this.timer);
+    }
 
+    openImport() {
+        this.importEvent.emit();
+    }
+
+    openGrant() {
+        this.grantEvent.emit(this.selected);
+    }
 }

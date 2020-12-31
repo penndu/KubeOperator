@@ -3,9 +3,18 @@ package service
 import (
 	"encoding/json"
 	"errors"
+	"io/ioutil"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/360EntSecGroup-Skylar/excelize"
 	"github.com/KubeOperator/KubeOperator/pkg/constant"
 	"github.com/KubeOperator/KubeOperator/pkg/controller/page"
+	"github.com/KubeOperator/KubeOperator/pkg/db"
 	"github.com/KubeOperator/KubeOperator/pkg/dto"
+	"github.com/KubeOperator/KubeOperator/pkg/errorf"
 	"github.com/KubeOperator/KubeOperator/pkg/model"
 	"github.com/KubeOperator/KubeOperator/pkg/model/common"
 	"github.com/KubeOperator/KubeOperator/pkg/repository"
@@ -14,7 +23,6 @@ import (
 	"github.com/KubeOperator/kobe/api"
 	uuid "github.com/satori/go.uuid"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"time"
 )
 
 type HostService interface {
@@ -25,15 +33,19 @@ type HostService interface {
 	Delete(name string) error
 	Sync(name string) (dto.Host, error)
 	Batch(op dto.HostOp) error
+	DownloadTemplateFile() error
+	ImportHosts(file []byte) error
 }
 
 type hostService struct {
-	hostRepo repository.HostRepository
+	hostRepo       repository.HostRepository
+	credentialRepo repository.CredentialRepository
 }
 
 func NewHostService() HostService {
 	return &hostService{
-		hostRepo: repository.NewHostRepository(),
+		hostRepo:       repository.NewHostRepository(),
+		credentialRepo: repository.NewCredentialRepository(),
 	}
 }
 
@@ -114,7 +126,7 @@ func (h hostService) Create(creation dto.HostCreate) (dto.Host, error) {
 	if err != nil {
 		return dto.Host{}, err
 	}
-	go h.RunGetHostConfig(host)
+	go h.RunGetHostConfig(&host)
 	return dto.Host{Host: host}, err
 }
 
@@ -173,20 +185,66 @@ func (h hostService) GetHostGpu(host *model.Host) error {
 		host.Status = model.Disconnect
 		return err
 	}
+	result, _, _, err := client.Exec("lspci|grep -i NVIDIA")
+	if err != nil {
+		host.HasGpu = false
+		host.GpuNum = 0
+	}
+	host.GpuNum = strings.Count(result, "NVIDIA")
+	if host.GpuNum > 0 {
+		host.HasGpu = true
+		s := strings.Index(result, "[")
+		t := strings.Index(result, "]")
+		host.GpuInfo = result[s+1 : t]
+	}
+	_ = h.hostRepo.Save(host)
 	return err
 }
-func (h hostService) RunGetHostConfig(host model.Host) {
+
+func (h hostService) GetHostMem(host *model.Host) error {
+	password, privateKey, err := host.GetHostPasswordAndPrivateKey()
+	if err != nil {
+		return err
+	}
+	client, err := ssh.New(&ssh.Config{
+		User:        host.Credential.Username,
+		Host:        host.Ip,
+		Port:        host.Port,
+		Password:    password,
+		PrivateKey:  privateKey,
+		PassPhrase:  nil,
+		DialTimeOut: 5 * time.Second,
+		Retry:       3,
+	})
+	if err != nil {
+		host.Status = model.SshError
+		return err
+	}
+	if err := client.Ping(); err != nil {
+		host.Status = model.Disconnect
+		return err
+	}
+	result, _, _, err := client.Exec("dmidecode -t 17 | grep \"Size.*MB\" | awk '{s+=$2} END {print s}'")
+	if err != nil {
+		return err
+	}
+	host.Memory, _ = strconv.Atoi(strings.Trim(result, "\n"))
+	_ = h.hostRepo.Save(host)
+	return err
+}
+
+func (h hostService) RunGetHostConfig(host *model.Host) {
 	host.Status = constant.ClusterInitializing
-	_ = h.hostRepo.Save(&host)
-	err := h.GetHostConfig(&host)
+	_ = h.hostRepo.Save(host)
+	err := h.GetHostConfig(host)
 	if err != nil {
 		host.Status = constant.ClusterFailed
 		host.Message = err.Error()
-		_ = h.hostRepo.Save(&host)
+		_ = h.hostRepo.Save(host)
 		return
 	}
 	host.Status = constant.ClusterRunning
-	_ = h.hostRepo.Save(&host)
+	_ = h.hostRepo.Save(host)
 }
 
 func (h hostService) GetHostConfig(host *model.Host) error {
@@ -201,7 +259,7 @@ func (h hostService) GetHostConfig(host *model.Host) error {
 		return err
 	}
 	ansible := kobe.NewAnsible(&kobe.Config{
-		Inventory: api.Inventory{
+		Inventory: &api.Inventory{
 			Hosts: []*api.Host{
 				{
 					Ip:         host.Ip,
@@ -275,20 +333,17 @@ func (h hostService) GetHostConfig(host *model.Host) error {
 		}
 		host.Os = result["ansible_distribution"].(string)
 		host.OsVersion = result["ansible_distribution_version"].(string)
-		if result["ansible_memtotal_mb"] != nil {
-			host.Memory = int(result["ansible_memtotal_mb"].(float64))
-		}
 		if result["ansible_processor_vcpus"] != nil {
 			host.CpuCore = int(result["ansible_processor_vcpus"].(float64))
 		}
 		devices := result["ansible_devices"].(map[string]interface{})
 		var volumes []model.Volume
-		for index, _ := range devices {
-			device := devices[index].(map[string]interface{})
+		for i := range devices {
+			device := devices[i].(map[string]interface{})
 			if "Virtual disk" == device["model"] {
 				v := model.Volume{
 					ID:     uuid.NewV4().String(),
-					Name:   "/dev/" + index,
+					Name:   "/dev/" + i,
 					Size:   device["size"].(string),
 					HostID: host.ID,
 				}
@@ -297,5 +352,116 @@ func (h hostService) GetHostConfig(host *model.Host) error {
 		}
 		host.Volumes = volumes
 	}
+	err = h.GetHostMem(host)
+	if err != nil {
+		return err
+	}
+	err = h.GetHostGpu(host)
+	if err != nil {
+		host.GpuNum = 0
+		host.GpuInfo = ""
+		host.HasGpu = false
+		_ = h.hostRepo.Save(host)
+		return nil
+	}
+	host.Status = constant.ClusterRunning
+	_ = h.hostRepo.Save(host)
 	return nil
+}
+
+func (h hostService) DownloadTemplateFile() error {
+	f := excelize.NewFile()
+	f.SetCellValue("Sheet1", "A1", "name")
+	f.SetCellValue("Sheet1", "B1", "ip")
+	f.SetCellValue("Sheet1", "C1", "port")
+	f.SetCellValue("Sheet1", "D1", "credential (系统设置-凭据中的名称)")
+	file, err := os.Create("./demo.xlsx")
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	_, err = f.WriteTo(file)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h hostService) ImportHosts(file []byte) error {
+	f, err := os.Create("./import.xlsx")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	err = ioutil.WriteFile("./import.xlsx", file, 0775)
+	if err != nil {
+		return err
+	}
+	xlsx, err := excelize.OpenFile("./import.xlsx")
+	if err != nil {
+		return err
+	}
+	rows := xlsx.GetRows("Sheet1")
+	if len(rows) == 0 {
+		return errors.New("HOST_IMPORT_ERROR_NULL")
+	}
+	var hosts []model.Host
+	//var errMsg string
+	var failedNum int
+	var errs errorf.CErrFs
+	for index, row := range rows {
+		if index == 0 {
+			continue
+		}
+		if row[0] == "" || row[1] == "" || row[2] == "" || row[3] == "" {
+			errs = errs.Add(errorf.New("HOST_IMPORT_NULL_VALUE", strconv.Itoa(index)))
+			failedNum++
+			continue
+		}
+		port, err := strconv.Atoi(row[2])
+		if err != nil {
+			errs = errs.Add(errorf.New("HOST_IMPORT_WRONG_FORMAT", strconv.Itoa(index)))
+			failedNum++
+			continue
+		}
+		credential, err := h.credentialRepo.Get(row[3])
+		if err != nil {
+			errs = errs.Add(errorf.New("HOST_IMPORT_CREDENTIAL_NOT_FOUND", strconv.Itoa(index)))
+			failedNum++
+			continue
+		}
+		host := model.Host{
+			Name:         strings.Trim(row[0], " "),
+			Ip:           strings.Trim(row[1], " "),
+			Port:         port,
+			CredentialID: credential.ID,
+			Status:       constant.ClusterInitializing,
+			Credential:   credential,
+		}
+		hosts = append(hosts, host)
+	}
+
+	if len(errs) > 0 {
+		errs = errs.Add(errorf.New("HOST_IMPORT_FAILED_NUM", strconv.Itoa(failedNum)))
+	}
+
+	for _, host := range hosts {
+		err = h.hostRepo.Save(&host)
+		if err != nil {
+			errs = errs.Add(errorf.New("HOST_IMPORT_FAILED_SAVE", host.Name, err.Error()))
+			continue
+		}
+		var ip model.Ip
+		db.DB.Where(model.Ip{Address: host.Ip}).First(&ip)
+		if ip.ID != "" {
+			ip.Status = constant.IpUsed
+			db.DB.Save(&ip)
+		}
+		go h.RunGetHostConfig(&host)
+	}
+	if len(errs) > 0 {
+		return errs
+	} else {
+		return nil
+	}
 }

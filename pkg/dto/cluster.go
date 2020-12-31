@@ -4,11 +4,12 @@ import "github.com/KubeOperator/KubeOperator/pkg/model"
 
 type Cluster struct {
 	model.Cluster
-	NodeSize      int    `json:"nodeSize"`
-	Status        string `json:"status"`
-	PreStatus     string `json:"preStatus"`
-	Provider      string `json:"provider"`
-	Architectures string `json:"architectures"`
+	NodeSize               int    `json:"nodeSize"`
+	Status                 string `json:"status"`
+	PreStatus              string `json:"preStatus"`
+	Provider               string `json:"provider"`
+	Architectures          string `json:"architectures"`
+	MultiClusterRepository string `json:"multiClusterRepository"`
 }
 
 type ClusterPage struct {
@@ -61,6 +62,7 @@ type ClusterCreate struct {
 	ProjectName           string       `json:"projectName"`
 	HelmVersion           string       `json:"helmVersion"`
 	NetworkInterface      string       `json:"networkInterface"`
+	SupportGpu            string       `json:"supportGpu"`
 }
 
 type ClusterBatch struct {
@@ -80,10 +82,6 @@ type ClusterWithEndpoint struct {
 
 type WebkubectlToken struct {
 	Token string `json:"token"`
-}
-
-type ClusterLog struct {
-	model.ClusterLog
 }
 
 type ClusterUpgrade struct {

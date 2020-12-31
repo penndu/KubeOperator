@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+
 	"github.com/KubeOperator/KubeOperator/pkg/constant"
 	"github.com/KubeOperator/KubeOperator/pkg/dto"
 	"github.com/KubeOperator/KubeOperator/pkg/model"
@@ -56,7 +57,7 @@ func (c clusterToolService) Disable(clusterName string, tool dto.ClusterTool) (d
 	buf, _ := json.Marshal(&tool.Vars)
 	mo.Vars = string(buf)
 	tool.ClusterTool = mo
-	endpoint, err := c.clusterService.GetApiServerEndpoint(clusterName)
+	endpoints, err := c.clusterService.GetApiServerEndpoints(clusterName)
 	if err != nil {
 		return tool, err
 	}
@@ -64,7 +65,16 @@ func (c clusterToolService) Disable(clusterName string, tool dto.ClusterTool) (d
 	if err != nil {
 		return tool, err
 	}
-	ct, err := tools.NewClusterTool(&tool.ClusterTool, cluster.Cluster, endpoint, secret.ClusterSecret)
+
+	itemValue, ok := tool.Vars["namespace"]
+	namespace := ""
+	if !ok {
+		namespace = constant.DefaultNamespace
+	} else {
+		namespace = itemValue.(string)
+	}
+
+	ct, err := tools.NewClusterTool(&tool.ClusterTool, cluster.Cluster, endpoints, secret.ClusterSecret, namespace, namespace)
 	if err != nil {
 		return tool, err
 	}
@@ -79,33 +89,35 @@ func (c clusterToolService) Enable(clusterName string, tool dto.ClusterTool) (dt
 	if err != nil {
 		return tool, err
 	}
+
 	tool.ClusterID = cluster.ID
 	mo := tool.ClusterTool
 	buf, _ := json.Marshal(&tool.Vars)
 	mo.Vars = string(buf)
 	tool.ClusterTool = mo
-	endpoint, err := c.clusterService.GetApiServerEndpoint(clusterName)
-	if err != nil {
-		return tool, err
-	}
-	secret, err := c.clusterService.GetSecrets(clusterName)
+
+	endpoints, err := c.clusterService.GetApiServerEndpoints(clusterName)
 	if err != nil {
 		return tool, err
 	}
 
+	secret, err := c.clusterService.GetSecrets(clusterName)
+	if err != nil {
+		return tool, err
+	}
 	kubeClient, err := kubernetesUtil.NewKubernetesClient(&kubernetesUtil.Config{
-		Host:  endpoint.Address,
+		Hosts: endpoints,
 		Token: secret.KubernetesToken,
-		Port:  endpoint.Port,
 	})
 	if err != nil {
 		return tool, err
 	}
-	ns, _ := kubeClient.CoreV1().Namespaces().Get(context.TODO(), constant.DefaultNamespace, metav1.GetOptions{})
+	oldNamespace, namespace := c.getNamespace(clusterName, tool)
+	ns, _ := kubeClient.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
 	if ns.ObjectMeta.Name == "" {
 		n := &v1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: constant.DefaultNamespace,
+				Name: namespace,
 			},
 		}
 		_, err = kubeClient.CoreV1().Namespaces().Create(context.TODO(), n, metav1.CreateOptions{})
@@ -113,7 +125,7 @@ func (c clusterToolService) Enable(clusterName string, tool dto.ClusterTool) (dt
 			return tool, err
 		}
 	}
-	ct, err := tools.NewClusterTool(&tool.ClusterTool, cluster.Cluster, endpoint, secret.ClusterSecret)
+	ct, err := tools.NewClusterTool(&tool.ClusterTool, cluster.Cluster, endpoints, secret.ClusterSecret, oldNamespace, namespace)
 	if err != nil {
 		return tool, err
 	}
@@ -138,4 +150,26 @@ func (c clusterToolService) doUninstall(p tools.Interface, tool *model.ClusterTo
 	_ = p.Uninstall()
 	tool.Status = constant.ClusterWaiting
 	_ = c.toolRepo.Save(tool)
+}
+
+func (c clusterToolService) getNamespace(clusterName string, tool dto.ClusterTool) (string, string) {
+	namespace := ""
+	Sp, ok := tool.Vars["namespace"]
+	if !ok {
+		namespace = constant.DefaultNamespace
+	} else {
+		namespace = Sp.(string)
+	}
+	oldTools, err := c.toolRepo.Get(clusterName, tool.Name)
+	if err != nil {
+		return namespace, namespace
+	}
+	oldVars := map[string]interface{}{}
+	_ = json.Unmarshal([]byte(oldTools.Vars), &oldVars)
+	oldSp, ok := oldVars["namespace"]
+	if !ok {
+		return namespace, namespace
+	} else {
+		return oldSp.(string), namespace
+	}
 }

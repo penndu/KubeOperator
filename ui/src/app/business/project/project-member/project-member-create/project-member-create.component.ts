@@ -64,7 +64,7 @@ export class ProjectMemberCreateComponent extends BaseModelDirective<ProjectMemb
     }
 
     handleValidation() {
-        this.projectMemberService.getUsers(this.item.userName).subscribe(res => {
+        this.projectMemberService.getUsers(this.item.userName, this.currentProject.name).subscribe(res => {
             this.selectUsers = res.items;
         });
     }

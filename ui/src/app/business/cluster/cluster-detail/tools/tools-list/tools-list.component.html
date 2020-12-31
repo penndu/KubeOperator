@@ -19,7 +19,7 @@
             <div class="card-footer">
                 <div style="text-align: right">
                     <button *ngIf="item.status === 'Waiting' || item.status === 'Failed'" class="btn btn-sm btn-primary"
-                            (click)="onEnable(item)">
+                        [disabled]='item.isDisable' (click)="onEnable(item)">
                         {{'APP_ENABLE'|translate}}
                     </button>
 
@@ -29,6 +29,10 @@
                     <span *ngIf="item.status === 'Initializing'">
                             <clr-spinner clrAssertive clrInline></clr-spinner>
                         {{"APP_INITIALIZING" | translate}}
+                    </span>
+                    <span *ngIf="item.status === 'Terminating'">
+                            <clr-spinner clrAssertive clrInline></clr-spinner>
+                        {{"APP_TERMINATING" | translate}}
                     </span>
                     <button class="btn btn-sm" *ngIf="item.status==='Running' && item.frame" (click)="openFrame(item)">
                         {{"APP_GO"|translate}}

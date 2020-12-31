@@ -8,7 +8,7 @@ import {NgForm} from '@angular/forms';
 import {AlertLevels} from '../../../../layout/common-alert/alert';
 import {ClrWizard, ClrWizardPage} from '@clr/angular';
 import {TranslateService} from '@ngx-translate/core';
-import {NamePattern, NamePatternHelper} from '../../../../constant/pattern';
+import {NamePattern} from '../../../../constant/pattern';
 
 @Component({
     selector: 'app-region-create',
@@ -18,11 +18,9 @@ import {NamePattern, NamePatternHelper} from '../../../../constant/pattern';
 export class RegionCreateComponent extends BaseModelDirective<Region> implements OnInit {
 
     namePattern = NamePattern;
-    namePatternHelper = NamePatternHelper;
     opened = false;
     isSubmitGoing = false;
     item: RegionCreateRequest = new RegionCreateRequest();
-    cloudProviders: string[] = [];
     isParamsValid;
     isParamsCheckGoing = false;
     cloudRegions: [] = [];
@@ -89,12 +87,15 @@ export class RegionCreateComponent extends BaseModelDirective<Region> implements
 
 
     onSubmit() {
+        this.isSubmitGoing = true;
         this.regionService.create(this.item).subscribe(res => {
             this.created.emit();
             this.doFinish();
             this.onCancel();
+            this.isSubmitGoing = false;
             this.commonAlertService.showAlert(this.translateService.instant('APP_ADD_SUCCESS'), AlertLevels.SUCCESS);
         }, error => {
+            this.isSubmitGoing = false;
             this.modalAlertService.showAlert(error.error.msg, AlertLevels.ERROR);
         });
     }

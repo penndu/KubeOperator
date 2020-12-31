@@ -1,6 +1,6 @@
 import {Component, EventEmitter, OnInit, Output, ViewChild} from '@angular/core';
 import {BaseModelDirective} from '../../../../shared/class/BaseModelDirective';
-import {CloudTemplate, CloudZone, CloudZoneRequest, Subnet, Zone, ZoneCreateRequest} from '../zone';
+import {CloudDatastore, CloudTemplate, CloudZone, CloudZoneRequest, Subnet, Zone, ZoneCreateRequest} from '../zone';
 import {ZoneService} from '../zone.service';
 import {RegionService} from '../../region/region.service';
 import {Region} from '../../region/region';
@@ -13,7 +13,9 @@ import * as ipaddr from 'ipaddr.js';
 import {CredentialService} from '../../../setting/credential/credential.service';
 import {Credential} from '../../../setting/credential/credential';
 import {NgForm} from '@angular/forms';
-import {NamePattern, NamePatternHelper} from '../../../../constant/pattern';
+import {NamePattern} from '../../../../constant/pattern';
+import {IpPoolService} from '../../ip-pool/ip-pool.service';
+import {IpPool} from '../../ip-pool/ip-pool';
 
 
 @Component({
@@ -24,7 +26,6 @@ import {NamePattern, NamePatternHelper} from '../../../../constant/pattern';
 export class ZoneCreateComponent extends BaseModelDirective<Zone> implements OnInit {
 
     namePattern = NamePattern;
-    namePatternHelper = NamePatternHelper;
     opened = false;
     item: ZoneCreateRequest = new ZoneCreateRequest();
     cloudZoneRequest: CloudZoneRequest = new CloudZoneRequest();
@@ -35,10 +36,13 @@ export class ZoneCreateComponent extends BaseModelDirective<Zone> implements OnI
     cloudZone: CloudZone;
     templateLoading = false;
     networkError = [];
-    networkValid = false;
+    networkValid = true;
     subnetList: Subnet[] = [];
     credentials: Credential[] = [];
     portgroups: string[] = [];
+    isSubmitGoing = false;
+    ipPools: IpPool[] = [];
+    cloudDatastores: CloudDatastore[] = [];
     @Output() created = new EventEmitter();
     @ViewChild('wizard') wizard: ClrWizard;
     @ViewChild('finishPage') finishPage: ClrWizardPage;
@@ -48,7 +52,7 @@ export class ZoneCreateComponent extends BaseModelDirective<Zone> implements OnI
 
     constructor(private zoneService: ZoneService, private regionService: RegionService, private modalAlertService: ModalAlertService,
                 private translateService: TranslateService, private commonAlertService: CommonAlertService,
-                private credentialService: CredentialService) {
+                private credentialService: CredentialService, private ipPoolService: IpPoolService) {
         super(zoneService);
     }
 
@@ -61,7 +65,9 @@ export class ZoneCreateComponent extends BaseModelDirective<Zone> implements OnI
         this.opened = true;
         this.listRegions();
         this.listCredentials();
+        this.listIpPool();
         this.item.cloudVars['templateType'] = 'default';
+        this.item.cloudVars['datastoreType'] = 'value';
     }
 
     onCancel() {
@@ -84,12 +90,15 @@ export class ZoneCreateComponent extends BaseModelDirective<Zone> implements OnI
     }
 
     onSubmit(): void {
+        this.isSubmitGoing = true;
         this.zoneService.create(this.item).subscribe(res => {
             this.doFinish();
             this.onCancel();
             this.created.emit();
+            this.isSubmitGoing = false;
             this.commonAlertService.showAlert(this.translateService.instant('APP_ADD_SUCCESS'), AlertLevels.SUCCESS);
         }, error => {
+            this.isSubmitGoing = false;
             this.modalAlertService.showAlert(error.error.msg, AlertLevels.ERROR);
         });
     }
@@ -107,12 +116,16 @@ export class ZoneCreateComponent extends BaseModelDirective<Zone> implements OnI
     }
 
     changeCloudZone() {
+        if (this.item.cloudVars['cluster'] === null) {
+            return;
+        }
         this.cloudZones.forEach(cloudZone => {
             if (cloudZone.cluster === this.item.cloudVars['cluster']) {
                 this.cloudZone = cloudZone;
-                console.log(this.cloudZone);
             }
         });
+        this.cloudZoneRequest.cloudVars['cluster'] = this.item.cloudVars['cluster'];
+        this.listDatastores();
     }
 
 
@@ -128,6 +141,14 @@ export class ZoneCreateComponent extends BaseModelDirective<Zone> implements OnI
         this.cloudZone.switchs.forEach(sw => {
             if (sw.name === this.item.cloudVars['switch']) {
                 this.portgroups = sw.portgroups;
+            }
+        });
+    }
+
+    changeTemplate() {
+        this.cloudTemplates.forEach(template => {
+            if (template.imageName === this.item.cloudVars['imageName']) {
+                this.item.cloudVars['imageDisks'] = template.imageDisks;
             }
         });
     }
@@ -150,6 +171,16 @@ export class ZoneCreateComponent extends BaseModelDirective<Zone> implements OnI
         this.templateLoading = true;
         this.zoneService.listTemplates(this.cloudZoneRequest).subscribe(res => {
             this.cloudTemplates = res.result;
+            this.templateLoading = false;
+        }, error => {
+            this.templateLoading = false;
+        });
+    }
+
+    listDatastores() {
+        this.templateLoading = true;
+        this.zoneService.listDatastores(this.cloudZoneRequest).subscribe(res => {
+            this.cloudDatastores = res;
             this.templateLoading = false;
         }, error => {
             this.templateLoading = false;
@@ -221,4 +252,11 @@ export class ZoneCreateComponent extends BaseModelDirective<Zone> implements OnI
         this.networkValid = true;
     }
 
+
+    listIpPool() {
+        this.ipPoolService.list().subscribe(res => {
+            this.ipPools = res.items;
+        }, error => {
+        });
+    }
 }

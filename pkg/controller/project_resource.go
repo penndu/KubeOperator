@@ -2,6 +2,7 @@ package controller
 
 import (
 	"github.com/KubeOperator/KubeOperator/pkg/constant"
+	"github.com/KubeOperator/KubeOperator/pkg/controller/log_save"
 	"github.com/KubeOperator/KubeOperator/pkg/controller/page"
 	"github.com/KubeOperator/KubeOperator/pkg/dto"
 	"github.com/KubeOperator/KubeOperator/pkg/service"
@@ -33,7 +34,7 @@ func NewProjectResourceController() *ProjectResourceController {
 func (p ProjectResourceController) Get() (*page.Page, error) {
 	pa, _ := p.Ctx.Values().GetBool("page")
 	resourceType := p.Ctx.URLParam("resourceType")
-	projectName := p.Ctx.Values().GetString("project")
+	projectName := p.Ctx.URLParam("project")
 	if pa {
 		num, _ := p.Ctx.Values().GetInt(constant.PageNumQueryKey)
 		size, _ := p.Ctx.Values().GetInt(constant.PageSizeQueryKey)
@@ -58,11 +59,23 @@ func (p ProjectResourceController) PostBatch() error {
 	if err != nil {
 		return err
 	}
+
+	operator := p.Ctx.Values().GetString("operator")
+	delResources := ""
+	for _, item := range req.Items {
+		delResources += (item.ResourceType + "-" + item.ResourceName + ",")
+	}
+	if req.Operation == "create" {
+		go log_save.LogSave(operator, constant.BIND_PROJECT_RESOURCE, delResources)
+	} else {
+		go log_save.LogSave(operator, constant.UNBIND_PROJECT_RESOURCE, delResources)
+	}
+
 	return err
 }
 
 func (p ProjectResourceController) GetList() (interface{}, error) {
 	resourceType := p.Ctx.URLParam("resourceType")
-	projectName := p.Ctx.Values().GetString("project")
+	projectName := p.Ctx.URLParam("project")
 	return p.ProjectResourceService.GetResources(resourceType, projectName)
 }

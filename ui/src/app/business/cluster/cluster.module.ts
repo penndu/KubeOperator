@@ -22,7 +22,9 @@ import {NodeDetailComponent} from './cluster-detail/node/node-detail/node-detail
 import {PersistentVolumeClaimListComponent} from './cluster-detail/storage/persistent-volume-claim/persistent-volume-claim-list/persistent-volume-claim-list.component';
 import {StorageClassListComponent} from './cluster-detail/storage/storage-class/storage-class-list/storage-class-list.component';
 import {LoggingComponent} from './cluster-detail/logging/logging.component';
-import {LoggingQueryComponent} from './cluster-detail/logging/logging-query/logging-query.component';
+import {EfComponent} from './cluster-detail/logging/ef/ef.component';
+import {LokiComponent} from './cluster-detail/logging/loki/loki.component';
+import {IstioComponent} from './cluster-detail/istio/istio.component';
 
 import {NgCircleProgressModule} from 'ng-circle-progress';
 import {MonitorComponent} from './cluster-detail/monitor/monitor.component';
@@ -50,9 +52,6 @@ import { NodeCreateComponent } from './cluster-detail/node/node-create/node-crea
 import { NodeDeleteComponent } from './cluster-detail/node/node-delete/node-delete.component';
 import { NodeStatusComponent } from './cluster-detail/node/node-status/node-status.component';
 import { WebkubectlComponent } from './cluster-detail/overview/webkubectl/webkubectl.component';
-import { LogComponent } from './cluster-detail/log/log.component';
-import { LogListComponent } from './cluster-detail/log/log-list/log-list.component';
-import { LogDetailComponent } from './cluster-detail/log/log-detail/log-detail.component';
 import { StorageProvisionerCreateExternalCephComponent } from './cluster-detail/storage/storage-provisioner/storage-provisioner-create/storage-provisioner-create-external-ceph/storage-provisioner-create-external-ceph.component';
 import { StorageProvisionerCreateRookCephComponent } from './cluster-detail/storage/storage-provisioner/storage-provisioner-create/storage-provisioner-create-rook-ceph/storage-provisioner-create-rook-ceph.component';
 import { StorageProvisionerCreateVsphereComponent } from './cluster-detail/storage/storage-provisioner/storage-provisioner-create/storage-provisioner-create-vsphere/storage-provisioner-create-vsphere.component';
@@ -81,7 +80,7 @@ import { F5Component } from './cluster-detail/f5/f5.component';
         OverviewComponent, ClusterConditionComponent, NodeComponent, NamespaceComponent, NamespaceListComponent,
         StorageComponent, PersistentVolumeComponent, PersistentVolumeClaimComponent, StorageClassComponent, PersistentVolumeListComponent,
         NodeListComponent, NodeDetailComponent, PersistentVolumeClaimListComponent,
-        StorageClassListComponent, LoggingComponent, LoggingQueryComponent,
+        StorageClassListComponent, LoggingComponent, EfComponent, LokiComponent, IstioComponent,
         MonitorComponent, MonitorDashboardComponent,
         ClusterImportComponent,
         StorageClassCreateComponent,
@@ -106,9 +105,6 @@ import { F5Component } from './cluster-detail/f5/f5.component';
         NodeDeleteComponent,
         NodeStatusComponent,
         WebkubectlComponent,
-        LogComponent,
-        LogListComponent,
-        LogDetailComponent,
         StorageProvisionerCreateExternalCephComponent,
         StorageProvisionerCreateRookCephComponent,
         StorageProvisionerCreateVsphereComponent,

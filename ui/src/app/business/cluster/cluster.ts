@@ -9,9 +9,11 @@ export class Cluster extends BaseModel {
     provider: string;
     projectName: string;
     source: string;
+    multiClusterRepository: string;
 }
 
 export class Spec {
+    dockerStorageDir: string;
     version: string;
     upgradeVersion: string;
     networkType: string;
@@ -21,6 +23,7 @@ export class Spec {
 
 export class ClusterStatus {
     phase: string;
+    prePhase: string;
     message: string;
     conditions: Condition[] = [];
 }
@@ -62,6 +65,7 @@ export class ClusterCreateRequest extends BaseModel {
     projectName: string;
     helmVersion: string;
     networkInterface: string;
+    supportGpu: string;
 }
 
 export class CLusterImportRequest {

@@ -3,6 +3,14 @@ package helm
 import (
 	"context"
 	"fmt"
+	"github.com/KubeOperator/KubeOperator/pkg/util/kubernetes"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/KubeOperator/KubeOperator/pkg/constant"
 	"github.com/KubeOperator/KubeOperator/pkg/logger"
 	"github.com/KubeOperator/KubeOperator/pkg/repository"
@@ -17,13 +25,7 @@ import (
 	"helm.sh/helm/v3/pkg/helmpath"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
-	"io/ioutil"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"os"
-	"path/filepath"
-	"strings"
-	"sync"
-	"time"
 )
 
 const (
@@ -41,26 +43,34 @@ type Interface interface {
 }
 
 type Config struct {
-	ApiServer     string
+	Hosts         []kubernetes.Host
 	BearerToken   string
+	OldNamespace  string
 	Namespace     string
 	Architectures string
 }
 type Client struct {
-	actionConfig  *action.Configuration
-	Namespace     string
-	settings      *cli.EnvSettings
-	Architectures string
+	installActionConfig   *action.Configuration
+	unInstallActionConfig *action.Configuration
+	Namespace             string
+	settings              *cli.EnvSettings
+	Architectures         string
 }
 
-func NewClient(config Config) (*Client, error) {
+func NewClient(config *Config) (*Client, error) {
+	var aliveHost kubernetes.Host
+	aliveHost, err := kubernetes.SelectAliveHost(config.Hosts)
+	if err != nil {
+		return nil, err
+	}
 	client := Client{
 		Architectures: config.Architectures,
 	}
 	client.settings = GetSettings()
 	cf := genericclioptions.NewConfigFlags(true)
 	inscure := true
-	cf.APIServer = &config.ApiServer
+	apiServer := fmt.Sprintf("https://%s", aliveHost)
+	cf.APIServer = &apiServer
 	cf.BearerToken = &config.BearerToken
 	cf.Insecure = &inscure
 	if config.Namespace == "" {
@@ -69,12 +79,16 @@ func NewClient(config Config) (*Client, error) {
 		client.Namespace = config.Namespace
 	}
 	cf.Namespace = &client.Namespace
-	actionConfig := new(action.Configuration)
-	err := actionConfig.Init(cf, client.Namespace, helmDriver, nolog)
-	if err != nil {
+	installActionConfig := new(action.Configuration)
+	if err := installActionConfig.Init(cf, client.Namespace, helmDriver, nolog); err != nil {
 		return nil, err
 	}
-	client.actionConfig = actionConfig
+	client.installActionConfig = installActionConfig
+	unInstallActionConfig := new(action.Configuration)
+	if err := unInstallActionConfig.Init(cf, config.OldNamespace, helmDriver, nolog); err != nil {
+		return nil, err
+	}
+	client.unInstallActionConfig = unInstallActionConfig
 	return &client, nil
 }
 
@@ -86,9 +100,10 @@ func (c Client) Install(name string, chartName string, values map[string]interfa
 	if err := updateRepo(); err != nil {
 		return nil, err
 	}
-	client := action.NewInstall(c.actionConfig)
+	client := action.NewInstall(c.installActionConfig)
 	client.ReleaseName = name
 	client.Namespace = c.Namespace
+	client.ChartPathOptions.InsecureSkipTLSverify = true
 	p, err := client.ChartPathOptions.LocateChart(chartName, c.settings)
 	if err != nil {
 		return nil, err
@@ -101,12 +116,12 @@ func (c Client) Install(name string, chartName string, values map[string]interfa
 	return client.Run(ct, values)
 }
 func (c Client) Uninstall(name string) (*release.UninstallReleaseResponse, error) {
-	client := action.NewUninstall(c.actionConfig)
+	client := action.NewUninstall(c.unInstallActionConfig)
 	return client.Run(name)
 }
 
 func (c Client) List() ([]*release.Release, error) {
-	client := action.NewList(c.actionConfig)
+	client := action.NewList(c.unInstallActionConfig)
 	client.All = true
 	return client.Run()
 }
@@ -131,12 +146,15 @@ func updateRepo() error {
 	}
 	r := repository.NewSystemSettingRepository()
 	s, err := r.Get("ip")
+	p, err := r.Get("REGISTRY_PROTOCOL")
+	fmt.Println("打印ip 协议", s.Value, p.Value)
 	if err != nil {
 		return errors.New("invalid local host ip")
 	}
 	if !flag {
-		err = addRepo("nexus", fmt.Sprintf("http://%s:8081/repository/applications", s.Value), "admin", "admin123")
+		err = addRepo("nexus", fmt.Sprintf("%s://%s:8081/repository/applications", p.Value, s.Value), "admin", "admin123")
 		if err != nil {
+			fmt.Println("添加 helm repo 错误:", err)
 			return err
 		}
 	}
@@ -195,7 +213,11 @@ func addRepo(name string, url string, username string, password string) error {
 	defer cancel()
 	locked, err := fileLock.TryLockContext(lockCtx, time.Second)
 	if err == nil && locked {
-		defer fileLock.Unlock()
+		defer func() {
+			if err := fileLock.Unlock(); err != nil {
+				fmt.Printf("fileLock.Unlock()出现错误： %v\n", err.Error())
+			}
+		}()
 	}
 	if err != nil {
 		return err

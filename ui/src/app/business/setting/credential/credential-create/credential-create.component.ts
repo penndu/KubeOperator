@@ -6,7 +6,7 @@ import {AlertLevels} from '../../../../layout/common-alert/alert';
 import {ModalAlertService} from '../../../../shared/common-component/modal-alert/modal-alert.service';
 import {CommonAlertService} from '../../../../layout/common-alert/common-alert.service';
 import {TranslateService} from '@ngx-translate/core';
-import {NamePattern, NamePatternHelper} from '../../../../constant/pattern';
+import {NamePattern} from '../../../../constant/pattern';
 
 @Component({
     selector: 'app-credential-create',
@@ -16,12 +16,12 @@ import {NamePattern, NamePatternHelper} from '../../../../constant/pattern';
 export class CredentialCreateComponent implements OnInit {
 
     namePattern = NamePattern;
-    namePatternHelper = NamePatternHelper;
     opened = false;
     isSubmitGoing = false;
     item: CredentialCreateRequest = new CredentialCreateRequest();
     @ViewChild('credentialForm') credentialForm: NgForm;
     @Output() created = new EventEmitter();
+
 
     constructor(private service: CredentialService, private modalAlertService: ModalAlertService,
                 private commonAlertService: CommonAlertService, private translateService: TranslateService) {
@@ -51,7 +51,15 @@ export class CredentialCreateComponent implements OnInit {
             this.created.emit();
             this.commonAlertService.showAlert(this.translateService.instant('APP_ADD_SUCCESS'), AlertLevels.SUCCESS);
         }, error => {
+            this.isSubmitGoing = false;
             this.modalAlertService.showAlert(error.error.msg, AlertLevels.ERROR);
         });
     }
+
+    validate() {
+        return true;
+    }
+
 }
+
+

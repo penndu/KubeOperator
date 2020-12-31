@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+
 	"github.com/KubeOperator/KubeOperator/pkg/constant"
 	"github.com/KubeOperator/KubeOperator/pkg/controller/page"
 	"github.com/KubeOperator/KubeOperator/pkg/db"
@@ -42,7 +43,7 @@ func (p projectResourceService) Page(num, size int, projectName string, resource
 	}
 	var resourceIds []string
 	for _, mo := range mos {
-		resourceIds = append(resourceIds, mo.ResourceId)
+		resourceIds = append(resourceIds, mo.ResourceID)
 	}
 
 	if len(resourceIds) > 0 {
@@ -64,23 +65,20 @@ func (p projectResourceService) Page(num, size int, projectName string, resource
 				result = append(result, hostDTO)
 			}
 			page.Items = result
-			break
 		case constant.ResourcePlan:
 			var result []model.Plan
-			err = db.DB.Table(model.Plan{}.TableName()).Where("id in (?)", resourceIds).Find(&result).Error
+			err = db.DB.Model(model.Plan{}).Where("id in (?)", resourceIds).Find(&result).Error
 			if err != nil {
 				return nil, err
 			}
 			page.Items = result
-			break
 		case constant.ResourceBackupAccount:
 			var result []model.BackupAccount
-			err = db.DB.Table(model.BackupAccount{}.TableName()).Where("id in (?)", resourceIds).Find(&result).Error
+			err = db.DB.Model(model.BackupAccount{}).Where("id in (?)", resourceIds).Find(&result).Error
 			if err != nil {
 				return nil, err
 			}
 			page.Items = result
-			break
 		default:
 			return nil, err
 		}
@@ -106,21 +104,18 @@ func (p projectResourceService) Batch(op dto.ProjectResourceOp) error {
 			if host.ClusterID != "" {
 				return errors.New("DELETE_HOST_FAILED_BY_CLUSTER")
 			}
-			break
 		case constant.ResourcePlan:
 			plan, err := NewPlanService().Get(item.ResourceName)
 			if err != nil {
 				return err
 			}
 			resourceId = plan.ID
-			break
 		case constant.ResourceBackupAccount:
 			plan, err := NewBackupAccountService().Get(item.ResourceName)
 			if err != nil {
 				return err
 			}
 			resourceId = plan.ID
-			break
 		}
 
 		var itemId string
@@ -142,13 +137,13 @@ func (p projectResourceService) Batch(op dto.ProjectResourceOp) error {
 				if len(clusterResources) > 0 {
 					for _, clusterResource := range clusterResources {
 						var backupStrategy model.ClusterBackupStrategy
-						err = db.DB.Where(model.ClusterBackupStrategy{BackupAccountID: resourceId, ClusterID: clusterResource.ResourceId}).First(&backupStrategy).Error
+						err = db.DB.Where(model.ClusterBackupStrategy{BackupAccountID: resourceId, ClusterID: clusterResource.ResourceID}).First(&backupStrategy).Error
 						if err != nil && !gorm.IsRecordNotFoundError(err) {
 							return err
 						}
 						if backupStrategy.ID != "" {
 							var backupFiles []model.ClusterBackupFile
-							err = db.DB.Where(model.ClusterBackupFile{ClusterBackupStrategyID: backupStrategy.ID, ClusterID: clusterResource.ResourceId}).Find(&backupFiles).Error
+							err = db.DB.Where(model.ClusterBackupFile{ClusterBackupStrategyID: backupStrategy.ID, ClusterID: clusterResource.ResourceID}).Find(&backupFiles).Error
 							if err != nil && !gorm.IsRecordNotFoundError(err) {
 								return err
 							}
@@ -164,7 +159,7 @@ func (p projectResourceService) Batch(op dto.ProjectResourceOp) error {
 		opItems = append(opItems, model.ProjectResource{
 			BaseModel:    common.BaseModel{},
 			ID:           itemId,
-			ResourceId:   resourceId,
+			ResourceID:   resourceId,
 			ResourceType: item.ResourceType,
 			ProjectID:    item.ProjectID,
 		})
@@ -193,7 +188,7 @@ func (p projectResourceService) GetResources(resourceType, projectName string) (
 		}
 	}
 	for _, pr := range projectResources {
-		resourceIds = append(resourceIds, pr.ResourceId)
+		resourceIds = append(resourceIds, pr.ResourceID)
 	}
 	if len(resourceIds) == 0 {
 		resourceIds = append(resourceIds, "1")

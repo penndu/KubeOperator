@@ -72,9 +72,9 @@ export class ClusterCreateComponent implements OnInit {
         this.item.containerdStorageDir = '/var/lib/containerd';
         this.item.flannelBackend = 'vxlan';
         this.item.calicoIpv4poolIpip = 'Always';
-        this.item.kubePodSubnet = '179.10.0.0/16';
-        this.item.kubeServiceSubnet = '179.20.0.0/16';
-        this.item.dockerSubnet = '179.30.0.1/16';
+        this.item.kubePodSubnet = '10.244.0.0/18';
+        this.item.kubeServiceSubnet = '10.244.64.0/18';
+        this.item.dockerSubnet = '172.17.0.1/16';
         this.item.kubeMaxPods = 110;
         this.item.certsExpired = 36500;
         this.item.kubernetesAudit = 'no';
@@ -82,8 +82,10 @@ export class ClusterCreateComponent implements OnInit {
         this.item.ingressControllerType = 'nginx';
         this.item.projectName = this.currentProject.name;
         this.item.workerAmount = 1;
+        this.item.version = 'v1.18.12';
         this.item.architectures = 'amd64';
         this.item.helmVersion = 'v3';
+        this.item.supportGpu = 'disable';
     }
 
     onNameCheck() {
@@ -174,7 +176,6 @@ export class ClusterCreateComponent implements OnInit {
 
     loadVersion() {
         this.manifestService.listActive().subscribe(data => {
-            this.item.version = data[0].version;
             for (const m of data) {
                 this.versions.push(m.version);
             }
@@ -198,7 +199,6 @@ export class ClusterCreateComponent implements OnInit {
     }
 
     onSubmit() {
-        console.log(this.item);
         this.service.create(this.item).subscribe(data => {
             this.opened = false;
             this.created.emit();
@@ -212,5 +212,13 @@ export class ClusterCreateComponent implements OnInit {
         } else {
             this.helmVersions = ['v3', 'v2'];
         }
+    }
+
+    getHostName(hosts: any) {
+        let hostName = '';
+        for (const h of hosts) {
+            hostName = h['text'] + ',';
+        }
+        return hostName;
     }
 }

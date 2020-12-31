@@ -35,6 +35,7 @@ func (c clusterRepository) Get(name string) (model.Cluster, error) {
 		Preload("Nodes.Host").
 		Preload("Nodes.Host.Credential").
 		Preload("Nodes.Host.Zone").
+		Preload("MultiClusterRepositories").
 		Find(&cluster).Error; err != nil {
 		return cluster, err
 	}
@@ -50,6 +51,8 @@ func (c clusterRepository) List() ([]model.Cluster, error) {
 		Preload("Nodes").
 		Preload("Nodes.Host").
 		Preload("Nodes.Host.Credential").
+		Preload("Nodes.Host.Zone").
+		Preload("MultiClusterRepositories").
 		Find(&clusters).Error; err != nil {
 		return clusters, err
 	}
@@ -71,7 +74,7 @@ func (c clusterRepository) Page(num, size int, projectName string) (int, []model
 	}
 	var resourceIds []string
 	for _, pr := range projectResources {
-		resourceIds = append(resourceIds, pr.ResourceId)
+		resourceIds = append(resourceIds, pr.ResourceID)
 	}
 
 	if err := db.DB.Model(model.Cluster{}).
@@ -81,6 +84,7 @@ func (c clusterRepository) Page(num, size int, projectName string) (int, []model
 		Preload("Status").
 		Preload("Spec").
 		Preload("Nodes").
+		Preload("MultiClusterRepositories").
 		Count(&total).
 		Find(&clusters).Error; err != nil {
 		return total, clusters, err

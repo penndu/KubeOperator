@@ -1,6 +1,10 @@
 package model
 
 import (
+	"encoding/json"
+	"errors"
+
+	"github.com/KubeOperator/KubeOperator/pkg/db"
 	"github.com/KubeOperator/KubeOperator/pkg/model/common"
 	uuid "github.com/satori/go.uuid"
 )
@@ -20,6 +24,20 @@ func (v *VmConfig) BeforeCreate() error {
 	return nil
 }
 
-func (v VmConfig) TableName() string {
-	return "ko_vm_config"
+func (v *VmConfig) BeforeDelete() error {
+	var plans []Plan
+	if err := db.DB.Find(&plans).Error; err != nil {
+		return err
+	}
+	for _, p := range plans {
+		planVars := map[string]string{}
+		_ = json.Unmarshal([]byte(p.Vars), &planVars)
+		if planVars["masterModel"] == v.Name {
+			return errors.New("VM_CONFIG_DELETE_FAILED")
+		}
+		if planVars["workerModel"] == v.Name {
+			return errors.New("VM_CONFIG_DELETE_FAILED")
+		}
+	}
+	return nil
 }

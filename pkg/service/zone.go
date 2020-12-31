@@ -4,13 +4,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/KubeOperator/KubeOperator/pkg/cloud_provider/client"
+	"github.com/KubeOperator/KubeOperator/pkg/cloud_provider"
+	"github.com/KubeOperator/KubeOperator/pkg/cloud_storage"
 	"github.com/KubeOperator/KubeOperator/pkg/constant"
 	"github.com/KubeOperator/KubeOperator/pkg/controller/page"
 	"github.com/KubeOperator/KubeOperator/pkg/dto"
 	"github.com/KubeOperator/KubeOperator/pkg/model"
 	"github.com/KubeOperator/KubeOperator/pkg/model/common"
 	"github.com/KubeOperator/KubeOperator/pkg/repository"
+	"io"
+	"net/http"
+	"os"
 	"strings"
 )
 
@@ -25,22 +29,27 @@ type ZoneService interface {
 	Page(num, size int) (page.Page, error)
 	Delete(name string) error
 	Create(creation dto.ZoneCreate) (*dto.Zone, error)
-	Update(creation dto.ZoneUpdate) (dto.Zone, error)
+	Update(creation dto.ZoneUpdate) (*dto.Zone, error)
 	Batch(op dto.ZoneOp) error
 	ListClusters(creation dto.CloudZoneRequest) ([]interface{}, error)
 	ListTemplates(creation dto.CloudZoneRequest) ([]interface{}, error)
-	ListByRegionId(regionId string) ([]dto.Zone, error)
+	ListByRegionName(regionName string) ([]dto.Zone, error)
+	ListDatastores(creation dto.CloudZoneRequest) ([]dto.CloudDatastore, error)
 }
 
 type zoneService struct {
 	zoneRepo             repository.ZoneRepository
+	regionRepo           repository.RegionRepository
 	systemSettingService SystemSettingService
+	ipPoolService        IpPoolService
 }
 
 func NewZoneService() ZoneService {
 	return &zoneService{
 		zoneRepo:             repository.NewZoneRepository(),
 		systemSettingService: NewSystemSettingService(),
+		regionRepo:           repository.NewRegionRepository(),
+		ipPoolService:        NewIpPoolService(),
 	}
 }
 
@@ -77,12 +86,23 @@ func (z zoneService) Page(num, size int) (page.Page, error) {
 		zoneDTO := new(dto.Zone)
 		m := make(map[string]interface{})
 		zoneDTO.Zone = mo
-		json.Unmarshal([]byte(mo.Vars), &m)
+		if err := json.Unmarshal([]byte(mo.Vars), &m); err != nil {
+			return page, err
+		}
 		zoneDTO.CloudVars = m
-
 		zoneDTO.RegionName = mo.Region.Name
 		zoneDTO.Provider = mo.Region.Provider
-
+		ipUsed := 0
+		for _, ip := range mo.IpPool.Ips {
+			if ip.Status != constant.IpAvailable {
+				ipUsed++
+			}
+		}
+		zoneDTO.IpPool = dto.IpPool{
+			IpUsed: ipUsed,
+			IpPool: mo.IpPool,
+		}
+		zoneDTO.IpPoolName = mo.IpPool.Name
 		zoneDTOs = append(zoneDTOs, *zoneDTO)
 	}
 	page.Total = total
@@ -112,11 +132,6 @@ func (z zoneService) Create(creation dto.ZoneCreate) (*dto.Zone, error) {
 	}
 
 	param := creation.CloudVars.(map[string]interface{})
-	if param["subnet"] != nil {
-		index := strings.Index(param["subnet"].(string), "/")
-		networkCidr := param["subnet"].(string)
-		param["netMask"] = networkCidr[index+1:]
-	}
 	region, err := NewRegionService().Get(creation.RegionName)
 	if err != nil {
 		return nil, err
@@ -125,13 +140,12 @@ func (z zoneService) Create(creation dto.ZoneCreate) (*dto.Zone, error) {
 		switch region.Provider {
 		case constant.OpenStack:
 			param["imageName"] = constant.OpenStackImageName
-			break
 		case constant.VSphere:
 			param["imageName"] = constant.VSphereImageName
-			break
+		case constant.FusionCompute:
+			param["template"] = constant.FusionComputeImageName
 		default:
 			param["imageName"] = constant.VSphereImageName
-			break
 		}
 		credentialService := NewCredentialService()
 		credential, err := credentialService.Get(constant.ImageCredentialName)
@@ -144,12 +158,26 @@ func (z zoneService) Create(creation dto.ZoneCreate) (*dto.Zone, error) {
 	if region.Provider == constant.VSphere {
 		regionVars := region.RegionVars.(map[string]interface{})
 		regionVars["datacenter"] = region.Datacenter
-		cloudClient := client.NewCloudClient(regionVars)
+		cloudClient := cloud_provider.NewCloudClient(regionVars)
 		err = cloudClient.CreateDefaultFolder()
 		if err != nil {
 			return nil, err
 		}
 	}
+
+	ipPool, err := z.ipPoolService.Get(creation.IpPoolName)
+	if err != nil {
+		return nil, err
+	}
+	if len(ipPool.Ips) == 0 {
+		return nil, errors.New("IP_SHORT")
+	}
+	index := strings.Index(ipPool.Subnet, "/")
+	networkCidr := ipPool.Subnet
+	param["netMask"] = networkCidr[index+1:]
+	param["gateway"] = ipPool.Ips[0].Gateway
+	param["dns1"] = ipPool.Ips[0].DNS1
+	param["dns2"] = ipPool.Ips[0].DNS2
 
 	vars, _ := json.Marshal(creation.CloudVars)
 	zone := model.Zone{
@@ -158,6 +186,7 @@ func (z zoneService) Create(creation dto.ZoneCreate) (*dto.Zone, error) {
 		Vars:         string(vars),
 		RegionID:     creation.RegionID,
 		CredentialID: creation.CredentialId,
+		IpPoolID:     ipPool.ID,
 		Status:       constant.Ready,
 	}
 
@@ -165,33 +194,48 @@ func (z zoneService) Create(creation dto.ZoneCreate) (*dto.Zone, error) {
 		zone.Status = constant.Initializing
 	}
 	err = z.zoneRepo.Save(&zone)
-
-	if param["templateType"] != nil && param["templateType"].(string) == "default" {
-		go z.uploadZoneImage(creation)
-	}
 	if err != nil {
 		return nil, err
+	}
+	if param["templateType"] != nil && param["templateType"].(string) == "default" {
+		go z.uploadZoneImage(creation)
 	}
 	return &dto.Zone{Zone: zone}, err
 }
 
-func (z zoneService) Update(creation dto.ZoneUpdate) (dto.Zone, error) {
+func (z zoneService) Update(creation dto.ZoneUpdate) (*dto.Zone, error) {
+
+	param := creation.CloudVars.(map[string]interface{})
+	ipPool, err := z.ipPoolService.Get(creation.IpPoolName)
+	if err != nil {
+		return nil, err
+	}
+	if len(ipPool.Ips) == 0 {
+		return nil, errors.New("IP_SHORT")
+	}
+
+	index := strings.Index(ipPool.Subnet, "/")
+	networkCidr := ipPool.Subnet
+	param["netMask"] = networkCidr[index+1:]
+	param["gateway"] = ipPool.Ips[0].Gateway
+	param["dns1"] = ipPool.Ips[0].DNS1
+	param["dns2"] = ipPool.Ips[0].DNS2
 
 	vars, _ := json.Marshal(creation.CloudVars)
-
 	zone := model.Zone{
 		BaseModel: common.BaseModel{},
 		Name:      creation.Name,
 		Vars:      string(vars),
 		RegionID:  creation.RegionID,
 		ID:        creation.ID,
+		IpPoolID:  ipPool.ID,
 	}
 
-	err := z.zoneRepo.Save(&zone)
+	err = z.zoneRepo.Save(&zone)
 	if err != nil {
-		return dto.Zone{}, err
+		return nil, err
 	}
-	return dto.Zone{Zone: zone}, err
+	return &dto.Zone{Zone: zone}, err
 }
 
 func (z zoneService) Batch(op dto.ZoneOp) error {
@@ -211,7 +255,7 @@ func (z zoneService) Batch(op dto.ZoneOp) error {
 }
 
 func (z zoneService) ListClusters(creation dto.CloudZoneRequest) ([]interface{}, error) {
-	cloudClient := client.NewCloudClient(creation.CloudVars.(map[string]interface{}))
+	cloudClient := cloud_provider.NewCloudClient(creation.CloudVars.(map[string]interface{}))
 	var result []interface{}
 	if cloudClient != nil {
 		result, err := cloudClient.ListClusters()
@@ -227,7 +271,7 @@ func (z zoneService) ListClusters(creation dto.CloudZoneRequest) ([]interface{},
 }
 
 func (z zoneService) ListTemplates(creation dto.CloudZoneRequest) ([]interface{}, error) {
-	cloudClient := client.NewCloudClient(creation.CloudVars.(map[string]interface{}))
+	cloudClient := cloud_provider.NewCloudClient(creation.CloudVars.(map[string]interface{}))
 	var result []interface{}
 	if cloudClient != nil {
 		result, err := cloudClient.ListTemplates()
@@ -291,7 +335,20 @@ func (z zoneService) uploadImage(creation dto.ZoneCreate) error {
 	if region.Provider == constant.OpenStack {
 		regionVars["imagePath"] = fmt.Sprintf(constant.OpenStackImagePath, ip.Value)
 	}
-	cloudClient := client.NewCloudClient(regionVars)
+	if region.Provider == constant.FusionCompute {
+		zoneVars := creation.CloudVars.(map[string]interface{})
+		if zoneVars["cluster"] != nil {
+			regionVars["cluster"] = zoneVars["cluster"]
+		}
+		if zoneVars["datastore"] != nil {
+			regionVars["datastore"] = zoneVars["datastore"]
+		}
+		if zoneVars["portgroup"] != nil {
+			regionVars["portgroup"] = zoneVars["portgroup"]
+		}
+	}
+
+	cloudClient := cloud_provider.NewCloudClient(regionVars)
 	if cloudClient != nil {
 		result, err := cloudClient.DefaultImageExist()
 		if err != nil {
@@ -299,6 +356,64 @@ func (z zoneService) uploadImage(creation dto.ZoneCreate) error {
 		}
 		if result {
 			return nil
+		}
+		if region.Provider == constant.FusionCompute {
+			zoneVars := creation.CloudVars.(map[string]interface{})
+			nfsVars := make(map[string]interface{})
+			nfsVars["type"] = "SFTP"
+			nfsVars["address"] = zoneVars["nfsAddress"]
+			nfsVars["port"] = zoneVars["nfsPort"]
+			nfsVars["username"] = zoneVars["nfsUsername"]
+			nfsVars["password"] = zoneVars["nfsPassword"]
+			nfsVars["bucket"] = zoneVars["nfsFolder"]
+			client, err := cloud_storage.NewCloudStorageClient(nfsVars)
+			if err != nil {
+				return err
+			}
+			ovfResp, err := http.Get(fmt.Sprintf(constant.FusionComputeOvfPath, ip.Value))
+			if err != nil {
+				return err
+			}
+			if ovfResp.StatusCode == 404 {
+				return errors.New(constant.FusionComputeOvfName + "not found")
+			}
+			defer ovfResp.Body.Close()
+			ovfOut, err := os.Create(constant.FusionComputeOvfLocal)
+			if err != nil {
+				return err
+			}
+			defer ovfOut.Close()
+			_, err = io.Copy(ovfOut, ovfResp.Body)
+			if err != nil {
+				return err
+			}
+			vhdResp, err := http.Get(fmt.Sprintf(constant.FusionComputeVhdPath, ip.Value))
+			if err != nil {
+				return err
+			}
+			if vhdResp.StatusCode == 404 {
+				return errors.New(constant.FusionComputeVhdName + "not found")
+			}
+			defer vhdResp.Body.Close()
+			vhdOut, err := os.Create(constant.FusionComputeVhdLocal)
+			if err != nil {
+				return err
+			}
+			defer vhdOut.Close()
+			_, err = io.Copy(vhdOut, vhdResp.Body)
+			if err != nil {
+				return err
+			}
+			result, err = client.Upload(constant.FusionComputeOvfLocal, constant.FusionComputeOvfName)
+			if err != nil {
+				return err
+			}
+			result, err = client.Upload(constant.FusionComputeVhdLocal, constant.FusionComputeVhdName)
+			if err != nil {
+				return err
+			}
+			regionVars["ovfPath"] = zoneVars["nfsAddress"].(string) + ":" + zoneVars["nfsFolder"].(string) + "/" + constant.FusionComputeOvfName
+			cloudClient = cloud_provider.NewCloudClient(regionVars)
 		}
 		err = cloudClient.UploadImage()
 		if err != nil {
@@ -308,9 +423,13 @@ func (z zoneService) uploadImage(creation dto.ZoneCreate) error {
 	return nil
 }
 
-func (z zoneService) ListByRegionId(regionId string) ([]dto.Zone, error) {
+func (z zoneService) ListByRegionName(regionName string) ([]dto.Zone, error) {
 	var zoneDTOs []dto.Zone
-	mos, err := z.zoneRepo.ListByRegionId(regionId)
+	region, err := z.regionRepo.Get(regionName)
+	if err != nil {
+		return nil, err
+	}
+	mos, err := z.zoneRepo.ListByRegionId(region.ID)
 	if err != nil {
 		return zoneDTOs, err
 	}
@@ -318,4 +437,41 @@ func (z zoneService) ListByRegionId(regionId string) ([]dto.Zone, error) {
 		zoneDTOs = append(zoneDTOs, dto.Zone{Zone: mo})
 	}
 	return zoneDTOs, err
+}
+
+func (z zoneService) ListDatastores(creation dto.CloudZoneRequest) ([]dto.CloudDatastore, error) {
+	var result []dto.CloudDatastore
+	var clientVars map[string]interface{}
+	if creation.RegionName != "" {
+		region, err := z.regionRepo.Get(creation.RegionName)
+		if err != nil {
+			return result, err
+		}
+		creation.Datacenter = region.Datacenter
+		m := make(map[string]interface{})
+		if err := json.Unmarshal([]byte(region.Vars), &m); err != nil {
+			return result, err
+		}
+		vars := creation.CloudVars.(map[string]interface{})
+		m["cluster"] = vars["cluster"].(string)
+		m["datacenter"] = region.Datacenter
+		clientVars = m
+	} else {
+		clientVars = creation.CloudVars.(map[string]interface{})
+	}
+	cloudClient := cloud_provider.NewCloudClient(clientVars)
+	datastores, err := cloudClient.ListDatastores()
+
+	for i := range datastores {
+		result = append(result, dto.CloudDatastore{
+			Name:      datastores[i].Name,
+			Capacity:  datastores[i].Capacity,
+			FreeSpace: datastores[i].FreeSpace,
+		})
+	}
+
+	if err != nil {
+		return result, err
+	}
+	return result, err
 }

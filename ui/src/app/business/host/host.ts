@@ -18,6 +18,7 @@ export class Host extends BaseModel {
     clusterId: string;
     zoneName: string;
     message: string;
+    hasGpu: boolean;
 }
 
 export class Volume extends BaseModel {
@@ -31,4 +32,9 @@ export class HostCreateRequest extends BaseRequest {
     ip: string;
     port: string;
     credentialId: string;
+}
+
+export class Project {
+    id: string;
+    name: string;
 }

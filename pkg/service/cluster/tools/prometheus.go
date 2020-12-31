@@ -3,6 +3,7 @@ package tools
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/KubeOperator/KubeOperator/pkg/constant"
 	"github.com/KubeOperator/KubeOperator/pkg/model"
 	"github.com/KubeOperator/KubeOperator/pkg/util/grafana"
@@ -59,6 +60,11 @@ func (p Prometheus) setDefaultValue() {
 	if _, ok := values["server.persistentVolume.size"]; ok {
 		values["server.persistentVolume.size"] = fmt.Sprintf("%vGi", values["server.persistentVolume.size"])
 	}
+	if va, ok := values["server.persistentVolume.enabled"]; ok {
+		if hasPers, _ := va.(bool); !hasPers {
+			delete(values, "server.nodeSelector.kubernetes\\.io/hostname")
+		}
+	}
 	str, _ := json.Marshal(&values)
 	p.Tool.Vars = string(str)
 }
@@ -68,10 +74,10 @@ func (c Prometheus) Install() error {
 	if err := installChart(c.Cluster.HelmClient, c.Tool, constant.PrometheusChartName); err != nil {
 		return err
 	}
-	if err := createRoute(constant.DefaultPrometheusIngressName, constant.DefaultPrometheusIngress, constant.DefaultPrometheusServiceName, 80, c.Cluster.KubeClient); err != nil {
+	if err := createRoute(c.Cluster.Namespace, constant.DefaultPrometheusIngressName, constant.DefaultPrometheusIngress, constant.DefaultPrometheusServiceName, 80, c.Cluster.KubeClient); err != nil {
 		return err
 	}
-	if err := waitForRunning(constant.DefaultPrometheusDeploymentName, 1, c.Cluster.KubeClient); err != nil {
+	if err := waitForRunning(c.Cluster.Namespace, constant.DefaultPrometheusDeploymentName, 1, c.Cluster.KubeClient); err != nil {
 		return err
 	}
 
@@ -86,7 +92,14 @@ func (c Prometheus) Install() error {
 }
 
 func (c Prometheus) Uninstall() error {
-	return uninstall(c.Tool, constant.DefaultPrometheusIngressName, c.Cluster.HelmClient, c.Cluster.KubeClient)
+	gClient := grafana.NewClient()
+	if err := gClient.DeleteDashboard(c.Cluster.Name); err != nil {
+		return err
+	}
+	if err := gClient.DeleteDataSource(c.Cluster.Name); err != nil {
+		return err
+	}
+	return uninstall(c.Cluster.Namespace, c.Tool, constant.DefaultPrometheusIngressName, c.Cluster.HelmClient, c.Cluster.KubeClient)
 }
 
 func (p Prometheus) createGrafanaDataSource() error {

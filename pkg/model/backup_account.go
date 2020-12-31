@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+
 	"github.com/KubeOperator/KubeOperator/pkg/db"
 	"github.com/KubeOperator/KubeOperator/pkg/model/common"
 	uuid "github.com/satori/go.uuid"
@@ -26,13 +27,9 @@ func (b *BackupAccount) BeforeCreate() (err error) {
 	return err
 }
 
-func (b BackupAccount) TableName() string {
-	return "ko_backup_account"
-}
-
 func (b *BackupAccount) BeforeDelete() (err error) {
 	var backupAccounts []ProjectResource
-	err = db.DB.Where(ProjectResource{ResourceId: b.ID}).Find(&backupAccounts).Error
+	err = db.DB.Where(ProjectResource{ResourceID: b.ID}).Find(&backupAccounts).Error
 	if err != nil {
 		return err
 	}

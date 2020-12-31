@@ -10,15 +10,21 @@ import (
 	"github.com/KubeOperator/KubeOperator/pkg/repository"
 	"github.com/KubeOperator/KubeOperator/pkg/util/encrypt"
 	"github.com/KubeOperator/KubeOperator/pkg/util/ldap"
+	"github.com/KubeOperator/KubeOperator/pkg/util/message"
+	"github.com/jinzhu/gorm"
+	"math/rand"
 )
 
 var (
-	PasswordNotMatch = errors.New("PASSWORD_NOT_MATCH")
-	OriginalNotMatch = errors.New("ORIGINAL_NOT_MATCH")
-	UserNotFound     = errors.New("USER_NOT_FOUND")
-	UserIsNotActive  = errors.New("USER_IS_NOT_ACTIVE")
-	UserNameExist    = errors.New("NAME_EXISTS")
-	LdapDisable      = errors.New("LDAP_DISABLE")
+	OriginalNotMatch  = errors.New("ORIGINAL_NOT_MATCH")
+	UserNotFound      = errors.New("USER_NOT_FOUND")
+	UserIsNotActive   = errors.New("USER_IS_NOT_ACTIVE")
+	UserNameExist     = errors.New("NAME_EXISTS")
+	LdapDisable       = errors.New("LDAP_DISABLE")
+	NamePwdFailed     = errors.New("NAME_PASSWORD_SAME_FAILED")
+	EmailDisable      = errors.New("EMAIL_DISABLE")
+	EmailNotMatch     = errors.New("EMAIL_NOT_MATCH")
+	NameOrPasswordErr = errors.New("NAME_PASSWORD_ERROR")
 )
 
 type UserService interface {
@@ -31,6 +37,7 @@ type UserService interface {
 	Batch(op dto.UserOp) error
 	ChangePassword(ch dto.UserChangePassword) error
 	UserAuth(name string, password string) (user *model.User, err error)
+	ResetPassword(fp dto.UserForgotPassword) error
 }
 
 type userService struct {
@@ -70,6 +77,10 @@ func (u userService) List() ([]dto.User, error) {
 
 func (u userService) Create(creation dto.UserCreate) (*dto.User, error) {
 
+	if creation.Name == creation.Password {
+		return nil, NamePwdFailed
+	}
+
 	old, _ := u.Get(creation.Name)
 	if old.ID != "" {
 		return nil, UserNameExist
@@ -106,10 +117,10 @@ func (u userService) Update(update dto.UserUpdate) (*dto.User, error) {
 		Name:     update.Name,
 		Email:    update.Email,
 		IsActive: update.IsActive,
-		Language: update.Language,
 		IsAdmin:  update.IsAdmin,
-		Password: update.Password,
 		Type:     constant.Local,
+		Password: old.Password,
+		Language: model.ZH,
 	}
 	err = u.userRepo.Save(&user)
 	if err != nil {
@@ -158,8 +169,11 @@ func (u userService) ChangePassword(ch dto.UserChangePassword) error {
 	if err != nil {
 		return err
 	}
-	if success == false {
+	if !success {
 		return OriginalNotMatch
+	}
+	if ch.Password == user.Name {
+		return NamePwdFailed
 	}
 	user.Password, err = encrypt.StringEncrypt(ch.Password)
 	if err != nil {
@@ -176,10 +190,10 @@ func (u userService) UserAuth(name string, password string) (user *model.User, e
 	var dbUser model.User
 	if db.DB.Where("name = ?", name).First(&dbUser).RecordNotFound() {
 		if db.DB.Where("email = ?", name).First(&dbUser).RecordNotFound() {
-			return nil, UserNotFound
+			return nil, NameOrPasswordErr
 		}
 	}
-	if dbUser.IsActive == false {
+	if !dbUser.IsActive {
 		return nil, UserIsNotActive
 	}
 
@@ -205,13 +219,64 @@ func (u userService) UserAuth(name string, password string) (user *model.User, e
 			return nil, err
 		}
 	} else {
-		password, err = encrypt.StringEncrypt(password)
+		uPassword, err := encrypt.StringDecrypt(dbUser.Password)
 		if err != nil {
 			return nil, err
 		}
-		if dbUser.Password != password {
-			return nil, PasswordNotMatch
+		if uPassword != password {
+			return nil, NameOrPasswordErr
 		}
 	}
 	return &dbUser, nil
+}
+
+func (u userService) ResetPassword(fp dto.UserForgotPassword) error {
+	user, err := u.userRepo.Get(fp.Username)
+	if err != nil {
+		if gorm.IsRecordNotFoundError(err) {
+			return UserNotFound
+		}
+		return err
+	}
+	if user.Email != fp.Email {
+		return EmailNotMatch
+	}
+	var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+	b := make([]rune, 6)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	password := string(b)
+	user.Password, err = encrypt.StringEncrypt(password)
+	if err != nil {
+		return err
+	}
+	systemSetting, err := NewSystemSettingService().ListByTab("EMAIL")
+	if err != nil {
+		return err
+	}
+	if systemSetting.Vars == nil && systemSetting.Vars["EMAIL_STATUS"] != "ENABLE" {
+		return EmailDisable
+	}
+	vars := make(map[string]interface{})
+	vars["type"] = "EMAIL"
+	for k, value := range systemSetting.Vars {
+		vars[k] = value
+	}
+	mClient, err := message.NewMessageClient(vars)
+	if err != nil {
+		return err
+	}
+	vars["TITLE"] = "重置密码"
+	vars["CONTENT"] = user.Name + "您的密码被重置为" + password
+	vars["RECEIVERS"] = fp.Email
+	err = mClient.SendMessage(vars)
+	if err != nil {
+		return err
+	}
+	err = u.userRepo.Save(&user)
+	if err != nil {
+		return err
+	}
+	return nil
 }

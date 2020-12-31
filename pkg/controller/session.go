@@ -1,7 +1,10 @@
 package controller
 
 import (
+	"time"
+
 	"github.com/KubeOperator/KubeOperator/pkg/constant"
+	"github.com/KubeOperator/KubeOperator/pkg/controller/log_save"
 	"github.com/KubeOperator/KubeOperator/pkg/dto"
 	"github.com/KubeOperator/KubeOperator/pkg/model"
 	"github.com/KubeOperator/KubeOperator/pkg/service"
@@ -9,7 +12,6 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/kataras/iris/v12/context"
 	"github.com/spf13/viper"
-	"time"
 )
 
 type SessionController struct {
@@ -57,9 +59,16 @@ func (s *SessionController) Post() (*dto.Profile, error) {
 			return nil, err
 		}
 		profile = p
+		sId := s.Ctx.GetCookie(constant.CookieNameForSessionID)
+		if sId != "" {
+			s.Ctx.RemoveCookie(constant.CookieNameForSessionID)
+		}
 		session := constant.Sess.Start(s.Ctx)
 		session.Set(constant.SessionUserKey, profile)
 	}
+
+	go log_save.LogSave(aul.Username, constant.LOGIN, "-")
+
 	return profile, nil
 }
 
@@ -72,7 +81,17 @@ func (s *SessionController) Post() (*dto.Profile, error) {
 // @Router /auth/session/ [delete]
 func (s *SessionController) Delete() error {
 	session := constant.Sess.Start(s.Ctx)
+
+	operator := ""
+	mapxx := session.GetAll()
+	if value, ok := mapxx[constant.SessionUserKey]; ok {
+		if user, isUser := value.(*dto.Profile); isUser {
+			operator = user.User.Name
+		}
+	}
 	session.Delete(constant.SessionUserKey)
+
+	go log_save.LogSave(operator, constant.LOGOUT, "-")
 	return nil
 }
 

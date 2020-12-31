@@ -3,42 +3,42 @@ import {CoreModule} from '../core/core.module';
 import {ClusterModule} from './cluster/cluster.module';
 import {SettingModule} from './setting/setting.module';
 import {HostModule} from './host/host.module';
-import {UserComponent} from './user/user.component';
-import {UserCreateComponent} from './user/user-create/user-create.component';
-import {UserListComponent} from './user/user-list/user-list.component';
-import {UserUpdateComponent} from './user/user-update/user-update.component';
-import {UserDeleteComponent} from './user/user-delete/user-delete.component';
 import {SharedModule} from '../shared/shared.module';
 import {RouterModule} from '@angular/router';
 import {DeployPlanModule} from './deploy-plan/deploy-plan.module';
-import {ProjectComponent} from './project/project.component';
 import {ProjectModule} from './project/project.module';
-import {ManifestComponent} from './manifest/manifest.component';
-import {ManifestListComponent} from './manifest/manifest-list/manifest-list.component';
-import {ManifestDetailComponent} from './manifest/manifest-detail/manifest-detail.component';
 import {MessageCenterModule} from './message-center/message-center.module';
-
+import {UserModule} from "./user/user.module";
+import {ManifestModule} from "./manifest/manifest.module";
+import {MultiClusterModule} from "./multi-cluster/multi-cluster.module";
+import {SystemLogModule} from './system-log/system-log.module';
 
 @NgModule({
-    declarations: [UserComponent, UserCreateComponent, UserListComponent, UserUpdateComponent, UserDeleteComponent,
-        ProjectComponent, ManifestComponent, ManifestListComponent, ManifestDetailComponent],
+    declarations: [],
     imports: [
         CoreModule,
         ClusterModule,
         SettingModule,
+        UserModule,
         HostModule,
         SharedModule,
         RouterModule,
         DeployPlanModule,
         ProjectModule,
         MessageCenterModule,
+        MultiClusterModule,
+        ManifestModule,
+        SystemLogModule,
     ],
     exports: [
         ClusterModule,
+        UserModule,
+        ManifestModule,
         SettingModule,
         HostModule,
         DeployPlanModule,
         MessageCenterModule,
+        SystemLogModule,
     ]
 })
 export class BusinessModule {

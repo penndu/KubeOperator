@@ -11,6 +11,7 @@ export class ClusterLoggerComponent implements OnInit, OnDestroy {
 
     term: Terminal;
     timer;
+    isRun: boolean = true; 
     @ViewChild('terminal', {static: true}) terminal: ElementRef;
 
 
@@ -39,18 +40,38 @@ export class ClusterLoggerComponent implements OnInit, OnDestroy {
             this.term.clear();
         }, 3000);
         const clusterName = this.getQueryVariable('clusterName');
+        const logId = this.getQueryVariable('logId');
         this.timer = setInterval(() => {
-            this.loggerService.getClusterLog(clusterName).subscribe(data => {
-                this.term.clear();
-                const text = data.msg.replace(/\n/g, '\r\n');
-                this.term.write(text);
-                setTimeout(() => {
-                    this.term.scrollToBottom();
-                }, 100);
-            }, error => {
-                this.term.write('no log to show');
-            });
+            if (this.isRun) {
+                if (logId) {
+                    this.loggerService.getProvisionerLog(clusterName, logId).subscribe(data => {
+                        this.term.clear();
+                        const text = data.msg.replace(/\n/g, '\r\n');
+                        this.term.write(text);
+                        setTimeout(() => {
+                            this.term.scrollToBottom();
+                        }, 100);
+                    }, error => {
+                        this.term.write('no log to show');
+                    });
+                } else {
+                    this.loggerService.getClusterLog(clusterName).subscribe(data => {
+                        this.term.clear();
+                        const text = data.msg.replace(/\n/g, '\r\n');
+                        this.term.write(text);
+                        setTimeout(() => {
+                            this.term.scrollToBottom();
+                        }, 100);
+                    }, error => {
+                        this.term.write('no log to show');
+                    });
+                }
+            }
         }, 5000);
+    }
+
+    changeMode() {
+        this.isRun = !this.isRun;
     }
 
     getQueryVariable(variable): string {

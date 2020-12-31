@@ -7,20 +7,16 @@ import (
 
 type ClusterStorageProvisioner struct {
 	common.BaseModel
-	ID        string `json:"_"`
+	ID        string `json:"id"`
 	Type      string `json:"type"`
 	Status    string `json:"status"`
 	Name      string `json:"name"    gorm:"not null;unique"`
 	Message   string `json:"message" gorm:"type:text(65535)"`
-	Vars      string `json:"_"    gorm:"type:text(65535)"`
+	Vars      string `json:"-"    gorm:"type:text(65535)"`
 	ClusterID string `json:"clusterId"`
 }
 
 func (c *ClusterStorageProvisioner) BeforeCreate() (err error) {
 	c.ID = uuid.NewV4().String()
 	return nil
-}
-
-func (c ClusterStorageProvisioner) TableName() string {
-	return "ko_cluster_storage_provisioner"
 }

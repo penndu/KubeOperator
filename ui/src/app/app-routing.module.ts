@@ -17,6 +17,7 @@ import {PersistentVolumeClaimComponent} from './business/cluster/cluster-detail/
 import {UserComponent} from './business/user/user.component';
 import {AuthUserService} from './shared/auth/auth-user.service';
 import {LoggingComponent} from './business/cluster/cluster-detail/logging/logging.component';
+import {IstioComponent} from './business/cluster/cluster-detail/istio/istio.component';
 import {MonitorComponent} from './business/cluster/cluster-detail/monitor/monitor.component';
 import {StorageClassComponent} from './business/cluster/cluster-detail/storage/storage-class/storage-class.component';
 import {RegionComponent} from './business/deploy-plan/region/region.component';
@@ -34,7 +35,6 @@ import {ProjectDetailComponent} from './business/project/project-detail/project-
 import {ProjectRoutingResolverService} from './business/project/project-routing-resolver.service';
 import {ProjectResourceComponent} from './business/project/project-resource/project-resource.component';
 import {ProjectMemberComponent} from './business/project/project-member/project-member.component';
-import {LogComponent} from './business/cluster/cluster-detail/log/log.component';
 import {BackupAccountComponent} from './business/setting/backup-account/backup-account.component';
 import {BackupComponent} from './business/cluster/cluster-detail/backup/backup.component';
 import {LicenseComponent} from './business/setting/license/license.component';
@@ -52,6 +52,20 @@ import {MessageComponent} from './business/setting/message/message.component';
 import {VmConfigComponent} from './business/deploy-plan/vm-config/vm-config.component';
 import {ClusterGradeComponent} from './business/cluster/cluster-detail/cluster-grade/cluster-grade.component';
 import {F5Component} from './business/cluster/cluster-detail/f5/f5.component';
+import {BusinessResolverService} from './shared/service/business-resolver.service';
+import {AdminAuthService} from './shared/auth/admin-auth.service';
+import {EmailComponent} from './business/setting/email/email.component';
+import {MultiClusterComponent} from "./business/multi-cluster/multi-cluster.component";
+import {MultiClusterRepositoryDetailComponent} from "./business/multi-cluster/multi-cluster-repository-detail/multi-cluster-repository-detail.component";
+import {MultiClusterRoutingResolverService} from "./business/multi-cluster/multi-cluster-routing-resolver.service";
+import {MultiClusterRelationComponent} from "./business/multi-cluster/multi-cluster-repository-detail/multi-cluster-relation/multi-cluster-relation.component";
+import {MultiClusterLogComponent} from "./business/multi-cluster/multi-cluster-repository-detail/multi-cluster-log/multi-cluster-log.component";
+import {MultiClusterSettingComponent} from "./business/multi-cluster/multi-cluster-repository-detail/multi-cluster-setting/multi-cluster-setting.component";
+import {SystemLogComponent} from "./business/system-log/system-log.component";
+import {IpPoolComponent} from './business/deploy-plan/ip-pool/ip-pool.component';
+import {IpComponent} from './business/deploy-plan/ip-pool/ip/ip.component';
+import {IpPoolRoutingResolverService} from './business/deploy-plan/ip-pool/ip-pool-routing-resolver.service';
+import {IpListComponent} from './business/deploy-plan/ip-pool/ip/ip-list/ip-list.component';
 
 const routes: Routes = [
     {path: 'login', component: LoginComponent},
@@ -61,6 +75,7 @@ const routes: Routes = [
         component: LayoutComponent,
         canActivate: [AuthUserService],
         canActivateChild: [AuthUserService],
+        resolve: {hasLicense: BusinessResolverService},
         children: [
             {path: '', redirectTo: 'projects', pathMatch: 'full'},
             {
@@ -112,8 +127,8 @@ const routes: Routes = [
                         ]
                     },
                     {path: 'tool', component: ToolsComponent},
+                    {path: 'istio', component: IstioComponent},
                     {path: 'backup', component: BackupComponent},
-                    {path: 'logs', component: LogComponent},
                     {path: 'grade', component: ClusterGradeComponent},
                     {path: 'f5', component: F5Component}
                 ],
@@ -121,15 +136,34 @@ const routes: Routes = [
             {
                 path: 'hosts',
                 component: HostComponent,
+                canActivate: [AdminAuthService]
+            },
+            {
+                path: 'multicluster',
+                component: MultiClusterComponent,
+            },
+            {
+                path: 'multicluster/:name',
+                component: MultiClusterRepositoryDetailComponent,
+                resolve: {repo: MultiClusterRoutingResolverService},
+                children: [
+                    {path: '', redirectTo: 'relation', pathMatch: 'full'},
+                    {path: 'relation', component: MultiClusterRelationComponent},
+                    {path: 'log', component: MultiClusterLogComponent},
+                    {path: 'setting', component: MultiClusterSettingComponent},
+                ]
             },
             {
                 path: 'setting',
                 component: SettingComponent,
+                canActivate: [AdminAuthService],
+                canActivateChild: [AdminAuthService],
                 children: [
                     {path: '', redirectTo: 'system', pathMatch: 'full'},
                     {path: 'system', component: SystemComponent},
                     {path: 'credential', component: CredentialComponent},
                     {path: 'backupAccounts', component: BackupAccountComponent},
+                    {path: 'email', component: EmailComponent},
                     {path: 'license', component: LicenseComponent},
                     {path: 'ldap', component: LdapComponent},
                     {path: 'theme', component: ThemeComponent},
@@ -139,20 +173,36 @@ const routes: Routes = [
             {
                 path: 'deploy',
                 component: DeployPlanComponent,
+                canActivate: [AdminAuthService],
                 children: [
                     {path: '', redirectTo: 'region', pathMatch: 'full'},
                     {path: 'region', component: RegionComponent},
                     {path: 'zone', component: ZoneComponent},
                     {path: 'plan', component: PlanComponent},
-                    {path: 'vmConfig', component: VmConfigComponent}
+                    {path: 'vm-config', component: VmConfigComponent},
+                    {
+                        path: 'ip-pool',
+                        component: IpPoolComponent,
+                    },
+                    {
+                        path: 'ip-pool/:name',
+                        component: IpComponent,
+                        resolve: {ipPool: IpPoolRoutingResolverService},
+                    }
                 ]
             }, {
                 path: 'manifests',
                 component: ManifestComponent,
+                canActivate: [AdminAuthService],
             },
             {
                 path: 'users',
                 component: UserComponent,
+                canActivate: [AdminAuthService],
+            },
+            {
+                path: 'system-log',
+                component: SystemLogComponent,
             },
             {
                 path: 'message',

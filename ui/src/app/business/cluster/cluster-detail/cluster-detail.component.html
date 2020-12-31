@@ -22,7 +22,7 @@
                 {{"APP_EVENT"|translate}}
             </a>
         </li>
-        <li class="nav-item" *ngIf="ready&&showApp('logging')">
+        <li class="nav-item" *ngIf="ready&&(showApp('logging')||showApp('loki'))">
             <a class="nav-link" href="javascript:void(0)" routerLink="logging"
                routerLinkActive="active">{{"APP_LOGGING"|translate}}</a>
         </li>
@@ -33,6 +33,10 @@
         <li class="nav-item">
             <a class="nav-link" href="javascript:void(0)" routerLink="tool"
                routerLinkActive="active">{{"APP_TOOLS"|translate}}</a>
+        </li>
+        <li class="nav-item" *ngIf="currentCluster.spec.architectures =='amd64'">
+            <a class="nav-link" href="javascript:void(0)" routerLink="istio"
+               routerLinkActive="active">{{"APP_ISTIO"|translate}}</a>
         </li>
         <li class="nav-item" *ngIf="currentCluster.source !='external'">
             <a class="nav-link" href="javascript:void(0)" routerLink="backup"
@@ -46,9 +50,6 @@
         </li>
         <li class="nav-item" *ngIf="hasLicense">
             <a class="nav-link" routerLink="grade" routerLinkActive="active">{{"APP_GRADE"|translate}}</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" routerLink="logs" routerLinkActive="active">{{"APP_HISTORY"|translate}}</a>
         </li>
     </ul>
 </nav>

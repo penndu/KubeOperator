@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+
 	"github.com/KubeOperator/KubeOperator/pkg/db"
 	"github.com/KubeOperator/KubeOperator/pkg/model/common"
 	uuid "github.com/satori/go.uuid"
@@ -19,16 +20,14 @@ type Zone struct {
 	Status       string `json:"status" gorm:"type:varchar(64)"`
 	RegionID     string `json:"regionID" gorm:"type:varchar(64)"`
 	CredentialID string `json:"credentialId" gorm:"type:varchar(64)"`
+	IpPoolID     string `json:"ipPoolId"`
 	Region       Region `json:"-"`
+	IpPool       IpPool `json:"_"`
 }
 
 func (z *Zone) BeforeCreate() (err error) {
 	z.ID = uuid.NewV4().String()
 	return err
-}
-
-func (z Zone) TableName() string {
-	return "ko_zone"
 }
 
 func (z *Zone) BeforeDelete() (err error) {

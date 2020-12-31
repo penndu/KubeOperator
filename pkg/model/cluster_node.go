@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"github.com/KubeOperator/KubeOperator/pkg/model/common"
 	"github.com/KubeOperator/KubeOperator/pkg/util/ssh"
 	"github.com/KubeOperator/kobe/api"
@@ -10,13 +11,15 @@ import (
 
 type ClusterNode struct {
 	common.BaseModel
-	ID        string `json:"_"`
+	ID        string `json:"-"`
 	Name      string `json:"name"`
-	HostID    string `json:"_"`
-	Host      Host   `json:"_" gorm:"save_associations:false"`
+	HostID    string `json:"-"`
+	Host      Host   `json:"-" gorm:"save_associations:false"`
 	ClusterID string `json:"clusterId"`
 	Role      string `json:"role"`
 	Status    string `json:"status"`
+	Dirty     bool   `json:"dirty"`
+	Message   string `json:"message"`
 }
 
 func (n *ClusterNode) BeforeCreate() (err error) {
@@ -33,6 +36,9 @@ func (n ClusterNode) ToKobeHost() *api.Host {
 		User:       n.Host.Credential.Username,
 		Password:   password,
 		PrivateKey: string(privateKey),
+		Vars: map[string]string{
+			"has_gpu": fmt.Sprintf("%v", n.Host.HasGpu),
+		},
 	}
 }
 
@@ -47,7 +53,4 @@ func (n ClusterNode) ToSSHConfig() ssh.Config {
 		DialTimeOut: 5 * time.Second,
 		Retry:       3,
 	}
-}
-func (n ClusterNode) TableName() string {
-	return "ko_cluster_node"
 }

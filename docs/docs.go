@@ -1801,6 +1801,9 @@ var doc = `{
                 "name": {
                     "type": "string"
                 },
+                "networkInterface": {
+                    "type": "string"
+                },
                 "networkType": {
                     "type": "string"
                 },
@@ -1827,6 +1830,9 @@ var doc = `{
                 },
                 "workerAmount": {
                     "type": "integer"
+                },
+                "supportGpu": {
+                    "type": "string"
                 }
             }
         },
@@ -2114,18 +2120,6 @@ var doc = `{
         "dto.Profile": {
             "type": "object",
             "properties": {
-                "permissions": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/permission.UserPermission"
-                    }
-                },
-                "roleMenus": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/permission.UserMenu"
-                    }
-                },
                 "token": {
                     "type": "string"
                 },
@@ -2578,9 +2572,6 @@ var doc = `{
         "model.ClusterSpec": {
             "type": "object",
             "properties": {
-                "_": {
-                    "type": "string"
-                },
                 "architectures": {
                     "type": "string"
                 },
@@ -2630,6 +2621,9 @@ var doc = `{
                     "type": "string"
                 },
                 "lbKubeApiserverIp": {
+                    "type": "string"
+                },
+                "networkInterface": {
                     "type": "string"
                 },
                 "networkType": {
@@ -2686,57 +2680,6 @@ var doc = `{
                 },
                 "total": {
                     "type": "integer"
-                }
-            }
-        },
-        "permission.UserMenu": {
-            "type": "object",
-            "properties": {
-                "menus": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "projectId": {
-                    "type": "string"
-                },
-                "projectName": {
-                    "type": "string"
-                }
-            }
-        },
-        "permission.UserPermission": {
-            "type": "object",
-            "properties": {
-                "projectId": {
-                    "type": "string"
-                },
-                "projectName": {
-                    "type": "string"
-                },
-                "projectRole": {
-                    "type": "string"
-                },
-                "userPermissionRoles": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/permission.UserPermissionRole"
-                    }
-                }
-            }
-        },
-        "permission.UserPermissionRole": {
-            "type": "object",
-            "properties": {
-                "operation": {
-                    "type": "string"
-                },
-                "roles": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
                 }
             }
         }

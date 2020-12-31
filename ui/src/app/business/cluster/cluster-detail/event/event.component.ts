@@ -20,6 +20,10 @@ export class EventComponent implements OnInit {
     events;
     currentNamespace: string;
     npdExists = false;
+    nextToken = '';
+    previousToken = '';
+    continueToken = '';
+    showPage = true;
 
     constructor(private kubernetesService: KubernetesService,
                 private route: ActivatedRoute,
@@ -44,11 +48,22 @@ export class EventComponent implements OnInit {
         });
     }
 
-    listEvents(namespace: string) {
+    changeNamespace(namespace) {
+        this.currentNamespace = namespace;
+        this.nextToken = '';
+        this.previousToken = '';
+        this.continueToken = '';
+        this.showPage = false;
+        setTimeout(x => this.showPage = true);
+        this.listEvents(namespace);
+    }
+
+    listEvents(namespace) {
         this.loading = true;
-        this.kubernetesService.listEvents(this.currentCluster.name).subscribe(res => {
+        this.kubernetesService.listEvents(this.currentCluster.name, this.continueToken, namespace).subscribe(res => {
             this.events = res.items;
             this.loading = false;
+            this.nextToken = res.metadata[this.kubernetesService.continueTokenKey] ? res.metadata[this.kubernetesService.continueTokenKey] : '';
         });
     }
 
@@ -73,6 +88,7 @@ export class EventComponent implements OnInit {
         this.eventService.changeNpd(this.currentCluster.name, op).subscribe(res => {
             this.commonAlertService.showAlert(this.translateService.instant('APP_UPDATE_SUCCESS'), AlertLevels.SUCCESS);
         }, error => {
+            this.npdExists = exists;
             this.commonAlertService.showAlert(error.error.msg, AlertLevels.ERROR);
         });
     }

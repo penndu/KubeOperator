@@ -37,6 +37,7 @@ export class StorageClassCreateComponent implements OnInit {
     }
 
     reset() {
+        this.isSubmitGoing = false;
         this.itemForm.resetForm();
         this.item = this.newV1StorageClass();
         this.provisioner = null;
@@ -74,7 +75,6 @@ export class StorageClassCreateComponent implements OnInit {
                     this.item.parameters['csi.storage.k8s.io/fstype'] = 'ext4';
                     break;
                 case 'vsphere':
-                    console.log(this.provisioner);
                     this.item.parameters['datastore'] = this.provisioner.vars['datastore'];
                     break;
             }

@@ -3,11 +3,13 @@ package controller
 import (
 	"errors"
 	"github.com/KubeOperator/KubeOperator/pkg/constant"
+	"github.com/KubeOperator/KubeOperator/pkg/controller/log_save"
 	"github.com/KubeOperator/KubeOperator/pkg/controller/page"
 	"github.com/KubeOperator/KubeOperator/pkg/dto"
 	"github.com/KubeOperator/KubeOperator/pkg/service"
 	"github.com/go-playground/validator/v10"
 	"github.com/kataras/iris/v12/context"
+	"io/ioutil"
 )
 
 var (
@@ -112,6 +114,10 @@ func (h HostController) Post() (*dto.Host, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	operator := h.Ctx.Values().GetString("operator")
+	go log_save.LogSave(operator, constant.CREATE_HOST, req.Name)
+
 	return &item, nil
 }
 
@@ -123,7 +129,10 @@ func (h HostController) Post() (*dto.Host, error) {
 // @Produce  json
 // @Security ApiKeyAuth
 // @Router /hosts/{name}/ [delete]
-func (h HostController) Delete(name string) error {
+func (h HostController) DeleteBy(name string) error {
+	operator := h.Ctx.Values().GetString("operator")
+	go log_save.LogSave(operator, constant.DELETE_HOST, name)
+
 	return h.HostService.Delete(name)
 }
 
@@ -146,5 +155,54 @@ func (h HostController) PostBatch() error {
 	if err != nil {
 		return err
 	}
+
+	operator := h.Ctx.Values().GetString("operator")
+	delHost := ""
+	for _, item := range req.Items {
+		delHost += (item.Name + ",")
+	}
+	go log_save.LogSave(operator, constant.DELETE_HOST, delHost)
+
 	return err
+}
+
+// Download Host Template File
+// @Tags hosts
+// @Summary Download Host Template File
+// @Description download template file for import hosts
+// @Accept  json
+// @Produce  json
+// @Security ApiKeyAuth
+// @Router /hosts/template/ [get]
+func (h HostController) GetTemplate() error {
+	err := h.HostService.DownloadTemplateFile()
+	if err != nil {
+		return err
+	}
+	err = h.Ctx.SendFile("demo.xlsx", "./demo.xlsx")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Upload File for import
+// @Tags hosts
+// @Summary Upload File for import
+// @Description Upload File for import hosts
+// @Accept  xlsx
+// @Produce  json
+// @Security ApiKeyAuth
+// @Router /hosts/upload/ [post]
+func (h HostController) PostUpload() error {
+	f, _, err := h.Ctx.FormFile("file")
+	if err != nil {
+		return err
+	}
+	bs, err := ioutil.ReadAll(f)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return h.HostService.ImportHosts(bs)
 }

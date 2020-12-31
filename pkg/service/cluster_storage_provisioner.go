@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/KubeOperator/KubeOperator/pkg/constant"
 	"github.com/KubeOperator/KubeOperator/pkg/dto"
 	"github.com/KubeOperator/KubeOperator/pkg/model"
@@ -11,6 +12,7 @@ import (
 	"github.com/KubeOperator/KubeOperator/pkg/service/cluster/adm"
 	"github.com/KubeOperator/KubeOperator/pkg/service/cluster/adm/phases"
 	"github.com/KubeOperator/KubeOperator/pkg/service/cluster/adm/phases/plugin/storage"
+	"github.com/KubeOperator/KubeOperator/pkg/util/ansible"
 )
 
 type ClusterStorageProvisionerService interface {
@@ -68,7 +70,7 @@ func (c clusterStorageProvisionerService) CreateStorageProvisioner(clusterName s
 		Name:   creation.Name,
 		Type:   creation.Type,
 		Vars:   string(vars),
-		Status: constant.ClusterWaiting,
+		Status: constant.ClusterInitializing,
 	}
 
 	cluster, err := c.clusterService.Get(clusterName)
@@ -88,16 +90,19 @@ func (c clusterStorageProvisionerService) CreateStorageProvisioner(clusterName s
 
 func (c clusterStorageProvisionerService) do(cluster model.Cluster, provisioner model.ClusterStorageProvisioner) {
 	admCluster := adm.NewCluster(cluster)
-	p := getPhase(provisioner)
-	err := p.Run(admCluster.Kobe, nil)
+	writer, err := ansible.CreateAnsibleLogWriterWithId(cluster.Name, provisioner.ID)
 	if err != nil {
+		log.Error(err)
+	}
+
+	p := getPhase(provisioner)
+	if err := p.Run(admCluster.Kobe, writer); err != nil {
 		provisioner.Status = constant.ClusterFailed
 		provisioner.Message = err.Error()
 	} else {
 		provisioner.Status = constant.ClusterRunning
 	}
 	_ = c.provisionerRepo.Save(cluster.Name, &provisioner)
-
 }
 
 func getPhase(provisioner model.ClusterStorageProvisioner) phases.Interface {
@@ -132,13 +137,15 @@ func getPhase(provisioner model.ClusterStorageProvisioner) phases.Interface {
 		}
 	case "oceanstor":
 		p = &storage.OceanStorPhase{
-			OceanStorType:     fmt.Sprintf("%v", vars["oceanstor_type"]),
-			OceanstorProduct:  fmt.Sprintf("%v", vars["oceanstor_product"]),
-			OceanstorURLs:     fmt.Sprintf("%v", vars["oceanstor_urls"]),
-			OceanstorUser:     fmt.Sprintf("%v", vars["oceanstor_user"]),
-			OceanstorPassword: fmt.Sprintf("%v", vars["oceanstor_password"]),
-			OceanstorPools:    fmt.Sprintf("%v", vars["oceanstor_pools"]),
-			OceanstorPortal:   fmt.Sprintf("%v", vars["oceanstor_portal"]),
+			OceanStorType:           fmt.Sprintf("%v", vars["oceanstor_type"]),
+			OceanstorProduct:        fmt.Sprintf("%v", vars["oceanstor_product"]),
+			OceanstorURLs:           fmt.Sprintf("%v", vars["oceanstor_urls"]),
+			OceanstorUser:           fmt.Sprintf("%v", vars["oceanstor_user"]),
+			OceanstorPassword:       fmt.Sprintf("%v", vars["oceanstor_password"]),
+			OceanstorPools:          fmt.Sprintf("%v", vars["oceanstor_pools"]),
+			OceanstorPortal:         fmt.Sprintf("%v", vars["oceanstor_portal"]),
+			OceanstorControllerType: fmt.Sprintf("%v", vars["oceanstor_controller_type"]),
+			OceanstorIsMultipath:    fmt.Sprintf("%v", vars["oceanstor_is_multipath"]),
 		}
 	}
 

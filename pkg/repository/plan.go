@@ -27,7 +27,9 @@ type planRepository struct {
 func (p planRepository) Get(name string) (model.Plan, error) {
 	var plan model.Plan
 	plan.Name = name
-	if err := db.DB.Where(plan).First(&plan).Error; err != nil {
+	if err := db.DB.Where(plan).First(&plan).
+		Preload("Zones").
+		Preload("Region").Find(&plan).Error; err != nil {
 		return plan, err
 	}
 	return plan, nil
@@ -64,7 +66,7 @@ func (p planRepository) List(projectName string) ([]model.Plan, error) {
 		}
 		var resourceIds []string
 		for _, pr := range projectResources {
-			resourceIds = append(resourceIds, pr.ResourceId)
+			resourceIds = append(resourceIds, pr.ResourceID)
 		}
 		err = db.DB.Model(model.Zone{}).Where("id in (?)", resourceIds).Find(&plans).Error
 		return plans, err
@@ -176,12 +178,13 @@ func (p planRepository) Batch(operation string, items []model.Plan) error {
 		}
 
 		tx := db.DB.Begin()
-		err := db.DB.Where("id in (?)", ids).Delete(&items).Error
+		err := tx.Where("id in (?)", ids).Delete(&items).Error
 		if err != nil {
 			tx.Rollback()
 			return err
 		}
-		err = tx.Where("plan_id in (?)", ids).Delete(&model.PlanZones{}).Error
+		var planZones []model.PlanZones
+		err = tx.Where("plan_id in (?)", ids).Delete(&planZones).Error
 		if err != nil {
 			tx.Rollback()
 			return err

@@ -2,9 +2,10 @@ package model
 
 import (
 	"errors"
-	"github.com/KubeOperator/KubeOperator/pkg/db"
+	"github.com/KubeOperator/KubeOperator/pkg/constant"
 	"github.com/KubeOperator/KubeOperator/pkg/model/common"
 	"github.com/KubeOperator/KubeOperator/pkg/util/encrypt"
+	"github.com/jinzhu/gorm"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -24,6 +25,7 @@ type Host struct {
 	GpuNum       int        `json:"gpuNum" gorm:"type:int(64)"`
 	GpuInfo      string     `json:"gpuInfo" gorm:"type:varchar(128)"`
 	Ip           string     `json:"ip" gorm:"type:varchar(128);not null;unique"`
+	HasGpu       bool       `json:"hasGpu" gorm:"type:boolean;default:false"`
 	Port         int        `json:"port" gorm:"type:varchar(64)"`
 	CredentialID string     `json:"credentialId" gorm:"type:varchar(64)"`
 	ClusterID    string     `json:"clusterId" gorm:"type:varchar(64)"`
@@ -34,23 +36,23 @@ type Host struct {
 	Cluster      Cluster    `json:"-" gorm:"save_associations:false" `
 	Status       string     `json:"status" gorm:"type:varchar(64)"`
 	Message      string     `json:"message" gorm:"type:text(65535)"`
+	Datastore    string     `json:"datastore" gorm:"type:varchar(64)"`
 }
 
 func (h Host) GetHostPasswordAndPrivateKey() (string, []byte, error) {
-	var err error = nil
 	password := ""
 	privateKey := []byte("")
-	if "password" == h.Credential.Type {
-		pwd, err := encrypt.StringDecrypt(h.Credential.Password)
-		password = pwd
+	switch h.Credential.Type {
+	case "password":
+		p, err := encrypt.StringDecrypt(h.Credential.Password)
 		if err != nil {
-			return password, privateKey, err
+			return "", nil, err
 		}
-	}
-	if "privateKey" == h.Credential.Type {
+		password = p
+	case "privateKey":
 		privateKey = []byte(h.Credential.PrivateKey)
 	}
-	return password, privateKey, err
+	return password, privateKey, nil
 }
 
 func (h *Host) BeforeCreate() error {
@@ -58,28 +60,31 @@ func (h *Host) BeforeCreate() error {
 	return nil
 }
 
-func (h *Host) BeforeDelete() error {
+func (h *Host) BeforeDelete(tx *gorm.DB) error {
 	if h.ClusterID != "" {
 		var cluster Cluster
 		cluster.ID = h.ClusterID
-		notFound := db.DB.First(&cluster).RecordNotFound()
+		notFound := tx.First(&cluster).RecordNotFound()
 		if !notFound {
 			return errors.New("DELETE_HOST_FAILED")
 		}
-
 	}
-	var PlanResources []ProjectResource
-	err := db.DB.Where(ProjectResource{ResourceId: h.ID}).Find(&PlanResources).Error
+	var projectResources []ProjectResource
+	err := tx.Where(ProjectResource{ResourceID: h.ID}).Find(&projectResources).Error
 	if err != nil {
 		return err
 	}
-	if len(PlanResources) > 0 {
+	if len(projectResources) > 0 {
 		return errors.New("DELETE_HOST_FAILED_BY_PROJECT")
 	}
-
+	var ip Ip
+	tx.Where(Ip{Address: h.Ip}).First(&ip)
+	if ip.ID != "" {
+		ip.Status = constant.IpAvailable
+		if err := tx.Save(&ip).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
 	return nil
-}
-
-func (h Host) TableName() string {
-	return "ko_host"
 }

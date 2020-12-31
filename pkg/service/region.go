@@ -3,7 +3,8 @@ package service
 import (
 	"encoding/json"
 	"errors"
-	"github.com/KubeOperator/KubeOperator/pkg/cloud_provider/client"
+	"fmt"
+	"github.com/KubeOperator/KubeOperator/pkg/cloud_provider"
 	"github.com/KubeOperator/KubeOperator/pkg/controller/page"
 	"github.com/KubeOperator/KubeOperator/pkg/dto"
 	"github.com/KubeOperator/KubeOperator/pkg/model"
@@ -46,7 +47,9 @@ func (r regionService) Get(name string) (dto.Region, error) {
 
 	m := make(map[string]interface{})
 	regionDTO.Region = mo
-	json.Unmarshal([]byte(mo.Vars), &m)
+	if err := json.Unmarshal([]byte(mo.Vars), &m); err != nil {
+		fmt.Printf("func (r regionService) Get(name string) json.Unmarshal err: %v\n", err)
+	}
 	regionDTO.RegionVars = m
 
 	return regionDTO, err
@@ -74,7 +77,9 @@ func (r regionService) Page(num, size int) (page.Page, error) {
 		regionDTO := new(dto.Region)
 		m := make(map[string]interface{})
 		regionDTO.Region = mo
-		json.Unmarshal([]byte(mo.Vars), &m)
+		if err := json.Unmarshal([]byte(mo.Vars), &m); err != nil {
+			fmt.Printf("func (r regionService) Page(num, size int) json.Unmarshal err: %v\n", err)
+		}
 		regionDTO.RegionVars = m
 		regionDTOs = append(regionDTOs, *regionDTO)
 	}
@@ -94,7 +99,7 @@ func (r regionService) Delete(name string) error {
 		return err
 	}
 	if len(regions) > 0 {
-		errors.New(DeleteRegionError)
+		return fmt.Errorf(DeleteRegionError)
 	}
 	err = r.regionRepo.Delete(name)
 	if err != nil {
@@ -143,7 +148,7 @@ func (r regionService) Batch(op dto.RegionOp) error {
 }
 
 func (r regionService) ListDatacenter(creation dto.RegionDatacenterRequest) ([]string, error) {
-	cloudClient := client.NewCloudClient(creation.RegionVars.(map[string]interface{}))
+	cloudClient := cloud_provider.NewCloudClient(creation.RegionVars.(map[string]interface{}))
 	var result []string
 	if cloudClient != nil {
 		result, err := cloudClient.ListDatacenter()

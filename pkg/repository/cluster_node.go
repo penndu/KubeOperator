@@ -12,7 +12,8 @@ type ClusterNodeRepository interface {
 	List(clusterName string) ([]model.ClusterNode, error)
 	ListByRole(clusterName string, role string) ([]model.ClusterNode, error)
 	Save(node *model.ClusterNode) error
-	FistMaster(ClusterId string) (model.ClusterNode, error)
+	FirstMaster(clusterId string) (model.ClusterNode, error)
+	AllMaster(clusterId string) ([]model.ClusterNode, error)
 	Delete(id string) error
 	BatchSave(nodes []*model.ClusterNode) error
 }
@@ -51,12 +52,12 @@ func (c clusterNodeRepository) Page(num, size int, clusterName string) (int, []m
 	if err := db.DB.
 		Model(model.ClusterNode{}).
 		Where(model.ClusterNode{ClusterID: cluster.ID}).
+		Count(&total).
 		Offset((num - 1) * size).
 		Limit(size).
 		Preload("Host").
 		Preload("Host.Credential").
 		Preload("Host.Zone").
-		Count(&total).
 		Order("substring_index(name, '-', 2), cast(substring_index(name, '-', -1) as UNSIGNED INTEGER)").
 		Find(&nodes).Error; err != nil {
 		return 0, nodes, err
@@ -101,10 +102,10 @@ func (c clusterNodeRepository) ListByRole(clusterName string, role string) ([]mo
 
 }
 
-func (c clusterNodeRepository) FistMaster(ClusterId string) (model.ClusterNode, error) {
+func (c clusterNodeRepository) FirstMaster(clusterId string) (model.ClusterNode, error) {
 	var master model.ClusterNode
 	if err := db.DB.
-		Where(model.ClusterNode{ClusterID: ClusterId, Role: constant.NodeRoleNameMaster}).
+		Where(model.ClusterNode{ClusterID: clusterId, Role: constant.NodeRoleNameMaster}).
 		Preload("Host").
 		Preload("Host.Credential").
 		First(&master).
@@ -112,6 +113,19 @@ func (c clusterNodeRepository) FistMaster(ClusterId string) (model.ClusterNode, 
 		return master, err
 	}
 	return master, nil
+}
+
+func (c clusterNodeRepository) AllMaster(clusterId string) ([]model.ClusterNode, error) {
+	var masters []model.ClusterNode
+	if err := db.DB.
+		Where(model.ClusterNode{ClusterID: clusterId, Role: constant.NodeRoleNameMaster}).
+		Preload("Host").
+		Preload("Host.Credential").
+		Find(&masters).
+		Error; err != nil {
+		return nil, err
+	}
+	return masters, nil
 }
 
 func (c clusterNodeRepository) Delete(id string) error {
@@ -150,7 +164,7 @@ func (c clusterNodeRepository) Save(node *model.ClusterNode) error {
 
 func (c clusterNodeRepository) BatchSave(nodes []*model.ClusterNode) error {
 	tx := db.DB.Begin()
-	for i, _ := range nodes {
+	for i := range nodes {
 		if db.DB.NewRecord(nodes[i]) {
 			if err := db.DB.Create(nodes[i]).Error; err != nil {
 				tx.Rollback()

@@ -3,13 +3,15 @@ package tools
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/KubeOperator/KubeOperator/pkg/constant"
 	"github.com/KubeOperator/KubeOperator/pkg/model"
 )
 
 const (
-	RegistryImageName = "registry"
-	RegistryTag       = "2.7.1"
+	RegistryImageName    = "kubeoperator/registry"
+	RegistryTagAmd64Name = "2.7.1-amd64"
+	RegistryTagArm64Name = "2.7.1-arm64"
 )
 
 type Registry struct {
@@ -31,12 +33,21 @@ func (c Registry) setDefaultValue() {
 	values := map[string]interface{}{}
 	_ = json.Unmarshal([]byte(c.Tool.Vars), &values)
 	values["image.repository"] = fmt.Sprintf("%s:%d/%s", c.LocalhostName, constant.LocalDockerRepositoryPort, RegistryImageName)
-	values["image.tag"] = RegistryTag
+
+	if c.Cluster.Spec.Architectures == "amd64" {
+		values["image.tag"] = RegistryTagAmd64Name
+	} else {
+		values["image.tag"] = RegistryTagArm64Name
+	}
 
 	if _, ok := values["persistence.size"]; ok {
 		values["persistence.size"] = fmt.Sprintf("%vGi", values["persistence.size"])
 	}
-
+	if va, ok := values["persistence.enabled"]; ok {
+		if hasPers, _ := va.(bool); !hasPers {
+			delete(values, "nodeSelector.kubernetes\\.io/hostname")
+		}
+	}
 	str, _ := json.Marshal(&values)
 	c.Tool.Vars = string(str)
 }
@@ -46,15 +57,15 @@ func (c Registry) Install() error {
 	if err := installChart(c.Cluster.HelmClient, c.Tool, constant.DockerRegistryChartName); err != nil {
 		return err
 	}
-	if err := createRoute(constant.DefaultRegistryIngressName, constant.DefaultRegistryIngress, constant.DefaultRegistryServiceName, 5000, c.Cluster.KubeClient); err != nil {
+	if err := createRoute(c.Cluster.Namespace, constant.DefaultRegistryIngressName, constant.DefaultRegistryIngress, constant.DefaultRegistryServiceName, 5000, c.Cluster.KubeClient); err != nil {
 		return err
 	}
-	if err := waitForRunning(constant.DefaultRegistryDeploymentName, 1, c.Cluster.KubeClient); err != nil {
+	if err := waitForRunning(c.Cluster.Namespace, constant.DefaultRegistryDeploymentName, 1, c.Cluster.KubeClient); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (c Registry) Uninstall() error {
-	return uninstall(c.Tool, constant.DefaultRegistryIngressName, c.Cluster.HelmClient, c.Cluster.KubeClient)
+	return uninstall(c.Cluster.Namespace, c.Tool, constant.DefaultRegistryIngressName, c.Cluster.HelmClient, c.Cluster.KubeClient)
 }

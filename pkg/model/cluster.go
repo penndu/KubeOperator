@@ -1,79 +1,39 @@
 package model
 
 import (
+	"strconv"
+
 	"github.com/KubeOperator/KubeOperator/pkg/constant"
 	"github.com/KubeOperator/KubeOperator/pkg/db"
 	"github.com/KubeOperator/KubeOperator/pkg/model/common"
 	"github.com/KubeOperator/KubeOperator/pkg/service/cluster/adm/facts"
 	"github.com/KubeOperator/kobe/api"
 	uuid "github.com/satori/go.uuid"
-	"strconv"
 )
 
 type Cluster struct {
 	common.BaseModel
-	ID       string        `json:"-"`
-	Name     string        `json:"name" gorm:"not null;unique"`
-	Source   string        `json:"source"`
-	SpecID   string        `json:"-"`
-	SecretID string        `json:"-"`
-	StatusID string        `json:"-"`
-	PlanID   string        `json:"-"`
-	LogId    string        `json:"logId"`
-	Plan     Plan          `json:"-"`
-	Spec     ClusterSpec   `gorm:"save_associations:false" json:"spec"`
-	Secret   ClusterSecret `gorm:"save_associations:false" json:"-"`
-	Status   ClusterStatus `gorm:"save_associations:false" json:"-"`
-	Nodes    []ClusterNode `gorm:"save_associations:false" json:"-"`
-	Tools    []ClusterTool `gorm:"save_associations:false" json:"-"`
-}
-
-func (c Cluster) TableName() string {
-	return "ko_cluster"
+	ID                       string                   `json:"-"`
+	Name                     string                   `json:"name" gorm:"not null;unique"`
+	Source                   string                   `json:"source"`
+	SpecID                   string                   `json:"-"`
+	SecretID                 string                   `json:"-"`
+	StatusID                 string                   `json:"-"`
+	PlanID                   string                   `json:"-"`
+	LogId                    string                   `json:"logId"`
+	Dirty                    bool                     `json:"dirty"`
+	Plan                     Plan                     `json:"-"`
+	Spec                     ClusterSpec              `gorm:"save_associations:false" json:"spec"`
+	Secret                   ClusterSecret            `gorm:"save_associations:false" json:"-"`
+	Status                   ClusterStatus            `gorm:"save_associations:false" json:"-"`
+	Nodes                    []ClusterNode            `gorm:"save_associations:false" json:"-"`
+	Tools                    []ClusterTool            `gorm:"save_associations:false" json:"-"`
+	Istios                   []ClusterIstio           `gorm:"save_associations:false" json:"-"`
+	MultiClusterRepositories []MultiClusterRepository `gorm:"many2many:cluster_multi_cluster_repository"`
 }
 
 func (c *Cluster) BeforeCreate() error {
 	c.ID = uuid.NewV4().String()
-	tx := db.DB.Begin()
-	if err := tx.Create(&c.Spec).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Create(&c.Status).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Create(&c.Secret).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-	c.SpecID = c.Spec.ID
-	c.StatusID = c.Status.ID
-	c.SecretID = c.Secret.ID
-	for i, _ := range c.Nodes {
-		c.Nodes[i].ClusterID = c.ID
-		if err := tx.Create(&c.Nodes[i]).Error; err != nil {
-			tx.Rollback()
-			return err
-		}
-		if c.Nodes[i].Host.ID != "" {
-			c.Nodes[i].Host.ClusterID = c.ID
-			err := tx.Save(&c.Nodes[i].Host).Error
-			if err != nil {
-				tx.Rollback()
-				return err
-			}
-		}
-	}
-	for _, tool := range c.PrepareTools() {
-		tool.ClusterID = c.ID
-		err := tx.Create(&tool).Error
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
-	}
-	tx.Commit()
 	return nil
 }
 
@@ -86,6 +46,8 @@ func (c Cluster) BeforeDelete() error {
 		Preload("Spec").
 		Preload("Nodes").
 		Preload("Tools").
+		Preload("Istios").
+		Preload("MultiClusterRepositories").
 		First(&cluster).Error; err != nil {
 		return err
 	}
@@ -108,6 +70,11 @@ func (c Cluster) BeforeDelete() error {
 		}
 	}
 	if len(cluster.Nodes) > 0 {
+		if err := tx.Model(Host{}).Where(Host{ClusterID: c.ID}).Updates(map[string]interface{}{"ClusterID": ""}).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+
 		for _, node := range cluster.Nodes {
 			if err := tx.Where(ClusterNode{ID: node.ID}).
 				Delete(ClusterNode{}).Error; err != nil {
@@ -120,26 +87,14 @@ func (c Cluster) BeforeDelete() error {
 					tx.Rollback()
 					return err
 				}
-				if cluster.Spec.Provider == constant.ClusterProviderBareMetal {
-					host.ClusterID = ""
-					if err := tx.Save(&host).Error; err != nil {
-						tx.Rollback()
-						return err
-					}
-				}
 				if cluster.Spec.Provider == constant.ClusterProviderPlan {
-					host.ClusterID = ""
-					if err := tx.Save(&host).Error; err != nil {
-						tx.Rollback()
-						return err
-					}
 					var projectResources []ProjectResource
-					if err := db.DB.Where(ProjectResource{ResourceId: host.ID, ResourceType: constant.ResourceHost}).Find(&projectResources).Error; err != nil {
+					if err := tx.Where(ProjectResource{ResourceID: host.ID, ResourceType: constant.ResourceHost}).Find(&projectResources).Error; err != nil {
 						return err
 					}
 					if len(projectResources) > 0 {
 						for _, p := range projectResources {
-							db.DB.Delete(&p)
+							tx.Delete(&p)
 						}
 					}
 					if err := tx.Delete(&host).Error; err != nil {
@@ -151,10 +106,31 @@ func (c Cluster) BeforeDelete() error {
 			}
 		}
 	}
+	if cluster.Spec.Provider == constant.ClusterProviderBareMetal {
+		var hosts []Host
+		tx.Where(Host{ClusterID: c.ID}).Find(&hosts)
+		if len(hosts) > 0 {
+			for i := range hosts {
+				hosts[i].ClusterID = ""
+				tx.Save(&hosts[i])
+			}
+		}
+
+	}
 	if len(cluster.Tools) > 0 {
 		for _, tool := range cluster.Tools {
 			if tool.ID != "" {
 				if err := tx.Delete(&tool).Error; err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
+		}
+	}
+	if len(cluster.Istios) > 0 {
+		for _, istio := range cluster.Istios {
+			if istio.ID != "" {
+				if err := tx.Delete(&istio).Error; err != nil {
 					tx.Rollback()
 					return err
 				}
@@ -183,7 +159,7 @@ func (c Cluster) BeforeDelete() error {
 	}
 
 	var projectResource ProjectResource
-	tx.Where(ProjectResource{ResourceId: c.ID, ResourceType: constant.ResourceCluster}).First(&projectResource)
+	tx.Where(ProjectResource{ResourceID: c.ID, ResourceType: constant.ResourceCluster}).First(&projectResource)
 	if projectResource.ID != "" {
 		if err := tx.Delete(&projectResource).Error; err != nil {
 			tx.Rollback()
@@ -232,8 +208,74 @@ func (c Cluster) BeforeDelete() error {
 		}
 	}
 
+	if len(cluster.MultiClusterRepositories) > 0 {
+		for _, repo := range cluster.MultiClusterRepositories {
+			var clusterMultiClusterRepository ClusterMultiClusterRepository
+			if err := tx.Where(ClusterMultiClusterRepository{ClusterID: c.ID, MultiClusterRepositoryID: repo.ID}).First(&clusterMultiClusterRepository).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+			if err := tx.Delete(&clusterMultiClusterRepository).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+
+		var clusterSyncLogs []MultiClusterSyncClusterLog
+		if err := tx.Where(MultiClusterSyncClusterLog{ClusterID: c.ID}).Find(&clusterSyncLogs).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+		for _, clusterLog := range clusterSyncLogs {
+			if clusterLog.ID != "" {
+				if err := tx.Delete(&clusterLog).Error; err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
+			var clusterResourceSyncLogs []MultiClusterSyncClusterResourceLog
+			if err := tx.Where(MultiClusterSyncClusterResourceLog{MultiClusterSyncClusterLogID: clusterLog.ID}).Find(&clusterResourceSyncLogs).Error; err != nil {
+				return err
+			}
+			for _, resourceLog := range clusterResourceSyncLogs {
+				if err := tx.Delete(&resourceLog).Error; err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
+		}
+	}
 	tx.Commit()
 	return nil
+}
+
+func (c Cluster) PrepareIstios() []ClusterIstio {
+	return []ClusterIstio{
+		{
+			Name:     "base",
+			Version:  "v1.8.0",
+			Describe: "",
+			Status:   constant.ClusterWaiting,
+		},
+		{
+			Name:     "pilot",
+			Version:  "v1.8.0",
+			Describe: "",
+			Status:   constant.ClusterWaiting,
+		},
+		{
+			Name:     "ingress",
+			Version:  "v1.8.0",
+			Describe: "",
+			Status:   constant.ClusterWaiting,
+		},
+		{
+			Name:     "egress",
+			Version:  "v1.8.0",
+			Describe: "",
+			Status:   constant.ClusterWaiting,
+		},
+	}
 }
 
 func (c Cluster) PrepareTools() []ClusterTool {
@@ -279,6 +321,16 @@ func (c Cluster) PrepareTools() []ClusterTool {
 			Architecture: supportedArchitectureAmd64,
 		},
 		{
+			Name:         "loki",
+			Version:      "v2.0.0",
+			Describe:     "",
+			Status:       constant.ClusterWaiting,
+			Logo:         "loki.png",
+			Frame:        false,
+			Url:          "/proxy/loki/{cluster_name}/root",
+			Architecture: supportedArchitectureAll,
+		},
+		{
 			Name:         "chartmuseum",
 			Version:      "v0.12.0",
 			Describe:     "",
@@ -286,7 +338,7 @@ func (c Cluster) PrepareTools() []ClusterTool {
 			Logo:         "chartmuseum.png",
 			Frame:        false,
 			Url:          "",
-			Architecture: supportedArchitectureAmd64,
+			Architecture: supportedArchitectureAll,
 		},
 		{
 			Name:         "registry",
@@ -357,10 +409,13 @@ func (c Cluster) GetKobeVars() map[string]string {
 	if c.Spec.NetworkInterface != "" {
 		result[facts.NetworkInterfaceFactName] = c.Spec.NetworkInterface
 	}
+	if c.Spec.SupportGpu != "" {
+		result[facts.SupportGpuName] = c.Spec.SupportGpu
+	}
 	return result
 }
 
-func (c Cluster) ParseInventory() api.Inventory {
+func (c Cluster) ParseInventory() *api.Inventory {
 	var masters []string
 	var workers []string
 	var chrony []string
@@ -381,7 +436,7 @@ func (c Cluster) ParseInventory() api.Inventory {
 	if len(masters) > 0 {
 		chrony = append(chrony, masters[0])
 	}
-	return api.Inventory{
+	return &api.Inventory{
 		Hosts: hosts,
 		Groups: []*api.Group{
 			{

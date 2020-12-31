@@ -30,6 +30,8 @@ export class ClusterConditionComponent implements OnInit {
 
     open(cluster: Cluster) {
         this.cluster = cluster;
+        this.item.phase = this.cluster.status;
+        this.item.prePhase = this.cluster.preStatus;
         this.getStatus();
         this.polling();
     }
@@ -37,6 +39,16 @@ export class ClusterConditionComponent implements OnInit {
     getStatus() {
         this.opened = true;
         this.service.status(this.cluster.name).subscribe(data => {
+            for (const co of data.conditions) {
+                if (co.message.length !== 0) {
+                    let msgItem =co.message;
+                    msgItem = msgItem.replace(/\\n/gi,'\n');
+                    msgItem = msgItem.replace(/\\u/gi,'%u');
+                    msgItem = msgItem.replace(/\\/gi,'');
+                    msgItem = unescape(msgItem)
+                    co.message = (co.message === '"waiting process"') ? '' : msgItem;
+                }
+            }
             this.item = data;
             this.loading = false;
         });
@@ -54,17 +66,28 @@ export class ClusterConditionComponent implements OnInit {
     }
 
     onRetry() {
-        switch (this.cluster.preStatus) {
+        switch (this.item.prePhase) {
             case 'Upgrading':
                 this.service.upgrade(this.cluster.name, this.cluster.spec.upgradeVersion).subscribe(data => {
                     this.retry.emit();
                     this.polling();
+                    this.opened = false;
                 });
                 break;
-            default:
+            case 'Terminating':
+                const delItems: Cluster[] = [];
+                delItems.push(this.cluster);
+                this.service.batch('delete', delItems).subscribe(data => {
+                    this.retry.emit();
+                    this.polling();
+                    this.opened = false;
+                });
+                break;
+            case 'Initializing':
                 this.service.init(this.cluster.name).subscribe(data => {
                     this.retry.emit();
                     this.polling();
+                    this.opened = false;
                 });
         }
     }
@@ -76,6 +99,16 @@ export class ClusterConditionComponent implements OnInit {
     polling() {
         this.timer = setInterval(() => {
             this.service.status(this.cluster.name).subscribe(data => {
+                for (const co of data.conditions) {
+                    if (co.message.length !== 0) {
+                        let msgItem = co.message;
+                        msgItem = msgItem.replace(/\\n/gi,'\n');
+                        msgItem = msgItem.replace(/\\u/gi,'%u');
+                        msgItem = msgItem.replace(/\\/gi,'');
+                        msgItem = unescape(msgItem)
+                        co.message = (co.message === '"waiting process"') ? '' : co.message;
+                    }
+                }
                 if (this.item.phase !== 'Running') {
                     this.item.conditions = data.conditions;
                 } else {
@@ -84,6 +117,11 @@ export class ClusterConditionComponent implements OnInit {
                 if (this.item.phase !== data.phase) {
                     this.item.phase = data.phase;
                 }
+                if (this.item.prePhase !== data.prePhase) {
+                    this.item.prePhase = data.prePhase;
+                }
+            }, error => {
+                this.opened = false;
             });
         }, 3000);
     }

@@ -14,8 +14,8 @@
                 <label>{{'APP_NAME'|translate}}</label>
                 <input clrInput size=45 type="text" maxlength="15" [(ngModel)]="item.name" pattern="{{namePattern}}"
                        name="name" required>
-                <clr-control-helper>{{namePatternHelper}}</clr-control-helper>
-                <clr-control-error>{{namePatternHelper}}</clr-control-error>
+                <clr-control-helper>{{'APP_REGION_NAME_HELPER'|translate}}</clr-control-helper>
+                <clr-control-error>{{'APP_REGION_NAME_HELPER'|translate}}</clr-control-error>
             </clr-input-container>
             <clr-select-container>
                 <label>{{'APP_REGION'|translate}}</label>
@@ -110,7 +110,8 @@
         <ng-template clrPageButtons>
             <clr-wizard-button [type]="'cancel'">{{'APP_CANCEL'|translate}}</clr-wizard-button>
             <clr-wizard-button [type]="'previous'">{{'APP_BACK'|translate}}</clr-wizard-button>
-            <clr-wizard-button [type]="'custom-finish'">{{'APP_FINISH'|translate}}</clr-wizard-button>
+            <clr-wizard-button [type]="'custom-finish'"
+                               [clrWizardButtonDisabled]="isSubmitGoing">{{'APP_FINISH'|translate}}</clr-wizard-button>
         </ng-template>
     </clr-wizard-page>
 </clr-wizard>

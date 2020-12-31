@@ -7,7 +7,7 @@ import (
 
 type ClusterSpec struct {
 	common.BaseModel
-	ID                    string `json:"_"`
+	ID                    string `json:"-"`
 	Version               string `json:"version"`
 	UpgradeVersion        string `json:"upgradeVersion"`
 	Provider              string `json:"provider"`
@@ -31,13 +31,10 @@ type ClusterSpec struct {
 	KubernetesAudit       string `json:"kubernetesAudit"`
 	HelmVersion           string `json:"helmVersion"`
 	NetworkInterface      string `json:"networkInterface"`
+	SupportGpu            string `json:"supportGpu"`
 }
 
 func (s *ClusterSpec) BeforeCreate() (err error) {
 	s.ID = uuid.NewV4().String()
 	return nil
-}
-
-func (s ClusterSpec) TableName() string {
-	return "ko_cluster_spec"
 }
